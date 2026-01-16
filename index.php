@@ -49,29 +49,42 @@ $total_kerohanian = $conn->query("SELECT COUNT(*) as count FROM kerohanian")->fe
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
         .navbar h1 {
             font-size: 24px;
+            margin: 0;
         }
         
-        .navbar .user-info {
+        .navbar-right {
             display: flex;
-            gap: 20px;
             align-items: center;
+            gap: 20px;
         }
         
-        .navbar a {
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+        
+        .logout-btn {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
             color: white;
             text-decoration: none;
-            padding: 8px 15px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 5px;
-            transition: background 0.3s;
+            border-radius: 4px;
+            transition: all 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            font-weight: 600;
+            white-space: nowrap;
         }
         
-        .navbar a:hover {
-            background: rgba(255, 255, 255, 0.3);
+        .logout-btn:hover {
+            background: rgba(220, 53, 69, 0.8);
+            border-color: #dc3545;
         }
         
         .container {
@@ -106,6 +119,12 @@ $total_kerohanian = $conn->query("SELECT COUNT(*) as count FROM kerohanian")->fe
             border-left-color: #667eea;
             color: #667eea;
             font-weight: 600;
+        }
+        
+        .sidebar hr {
+            margin: 15px 0;
+            border: none;
+            border-top: 1px solid #ddd;
         }
         
         .content {
@@ -197,14 +216,48 @@ $total_kerohanian = $conn->query("SELECT COUNT(*) as count FROM kerohanian")->fe
         .info-box strong {
             color: #667eea;
         }
+        
+        @media (max-width: 768px) {
+            .navbar {
+                flex-wrap: wrap;
+                gap: 15px;
+            }
+            
+            .navbar h1 {
+                width: 100%;
+                font-size: 20px;
+            }
+            
+            .navbar-right {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .container {
+                flex-direction: column;
+                height: auto;
+            }
+            
+            .sidebar {
+                width: 100%;
+                height: auto;
+            }
+            
+            .content {
+                flex: 1;
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- Navbar Sederhana -->
     <div class="navbar">
         <h1>🥋 Sistem Manajemen Lembaga Beladiri</h1>
-        <div class="user-info">
-            <span>Halo, <?php echo $_SESSION['nama']; ?>!</span>
-            <a href="logout.php">Logout</a>
+        <div class="navbar-right">
+            <div class="user-info">
+                <span><?php echo htmlspecialchars($_SESSION['nama'] ?? 'User'); ?></span>
+            </div>
+            <a href="logout.php" class="logout-btn">🚪 Logout</a>
         </div>
     </div>
     
@@ -212,14 +265,14 @@ $total_kerohanian = $conn->query("SELECT COUNT(*) as count FROM kerohanian")->fe
         <div class="sidebar">
             <a href="index.php" class="active">📊 Dashboard</a>
             <a href="pages/admin/pengurus.php">📋 Kepengurusan</a>
-            <a href="pages/admin/ranting.php">🏢 Unit / Ranting</a>
+            <a href="pages/admin/ranting.php">🌳 Unit / Ranting</a>
             <a href="pages/admin/anggota.php">👥 Manajemen Anggota</a>
             <a href="pages/admin/ukt.php">🏆 Ujian Kenaikan Tingkat</a>
             <a href="pages/admin/kerohanian.php">🙏 Kerohanian</a>                        
             <a href="pages/admin/jadwal_latihan.php">⏰ Jadwal Latihan</a>
             
             <?php if ($_SESSION['role'] == 'admin'): ?>
-            <hr style="margin: 15px 0; border: none; border-top: 1px solid #ddd;">
+            <hr>
             <a href="pages/admin/settings.php">⚙️ Settings</a>
             <a href="pages/admin/user_management.php">👤 Kelola User</a>
             <?php endif; ?>
@@ -247,7 +300,7 @@ $total_kerohanian = $conn->query("SELECT COUNT(*) as count FROM kerohanian")->fe
                 <!-- Unit/Ranting -->
                 <div class="card">
                     <div class="card-header">
-                        <div class="card-icon">🏢</div>
+                        <div class="card-icon">🌳</div>
                         <div class="card-title">Total Unit / Ranting</div>
                     </div>
                     <div class="card-number"><?php echo $total_ranting; ?></div>
@@ -267,7 +320,7 @@ $total_kerohanian = $conn->query("SELECT COUNT(*) as count FROM kerohanian")->fe
                 <!-- Pengurus Kota/Kabupaten -->
                 <div class="card">
                     <div class="card-header">
-                        <div class="card-icon">🏙️</div>
+                        <div class="card-icon">🏛️</div>
                         <div class="card-title">Pengurus Kota / Kabupaten</div>
                     </div>
                     <div class="card-number"><?php echo $total_kota; ?></div>

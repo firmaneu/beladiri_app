@@ -178,6 +178,11 @@ if ($print_mode) {
     </style>
 </head>
 <body>
+    <div style="padding: 10px; text-align: right; border-bottom: 1px solid #ddd;">
+        <button onclick="window.history.back()" style="padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">
+            ← Kembali
+        </button>
+    </div>
     <div class="header">
         <h1>DAFTAR ANGGOTA PERISAI DIRI</h1>
         <p>Tanggal Cetak: <?php echo date('d M Y H:i:s'); ?></p>
@@ -193,7 +198,7 @@ if ($print_mode) {
                 <th style="width: 4%;">JK</th>
                 <th style="width: 8%;">Tingkat</th>
                 <th style="width: 15%;">Unit/Ranting</th>
-                <th style="width: 12%;">PengKota/Kabupaten</th>
+                <th style="width: 12%;">PengKot/Kab</th>
                 <th style="width: 12%;">PengProv</th>
                 <th style="width: 8%;">Layak UKT</th>
                 <th style="width: 7%;">Kerohanian</th>
@@ -225,6 +230,7 @@ if ($print_mode) {
     
     <div class="print-info">
         <p>Halaman ini dicetak dari Sistem Manajemen Perisai Diri</p>
+        <p>Printed: <?php echo date('d/m/Y H:i'); ?></p>
     </div>
     
     <script>
@@ -539,44 +545,61 @@ if ($print_mode) {
                     <input type="text" name="search" placeholder="Cari nama atau no anggota..." value="<?php echo htmlspecialchars($search); ?>">
                 </div>
 
-                <!-- Filter Struktur Organisasi -->
-                <div class="filter-section-title">📋 Filter Struktur Organisasi</div>
+                <!-- Filter Struktur Organisasi dengan CASCADE -->
+                <div class="filter-section-title">📋 Filter Struktur Organisasi (Cascade)</div>
+                
                 <div class="filter-row">
-                    <select name="filter_pengprov">
-                        <option value="">-- Semua Pengurus Provinsi --</option>
-                        <?php 
-                        $pengprov_result->data_seek(0);
-                        while ($prov = $pengprov_result->fetch_assoc()): 
-                        ?>
-                        <option value="<?php echo $prov['id']; ?>" <?php echo $filter_pengprov == $prov['id'] ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($prov['nama_pengurus']); ?>
-                        </option>
-                        <?php endwhile; ?>
-                    </select>
+                    <!-- Filter 1: Pengurus Provinsi -->
+                    <div>
+                        <select name="filter_pengprov" id="filter_pengprov_anggota" onchange="updatePengKotAnggota()">
+                            <option value="">-- Semua Pengurus Provinsi --</option>
+                            <?php 
+                            $pengprov_all = $conn->query("SELECT id, nama_pengurus FROM pengurus WHERE jenis_pengurus = 'provinsi' ORDER BY nama_pengurus");
+                            while ($prov = $pengprov_all->fetch_assoc()): 
+                            ?>
+                                <option value="<?php echo $prov['id']; ?>" <?php echo $filter_pengprov == $prov['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($prov['nama_pengurus']); ?>
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
 
-                    <select name="filter_pengkot">
-                        <option value="">-- Semua Pengurus Kota / Kabupaten --</option>
-                        <?php 
-                        $pengkot_result->data_seek(0);
-                        while ($kota = $pengkot_result->fetch_assoc()): 
-                        ?>
-                        <option value="<?php echo $kota['id']; ?>" <?php echo $filter_pengkot == $kota['id'] ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($kota['nama_pengurus']); ?>
-                        </option>
-                        <?php endwhile; ?>
-                    </select>
+                    <!-- Filter 2: Pengurus Kota (CASCADE) -->
+                    <div>
+                        <select name="filter_pengkot" id="filter_pengkot_anggota" onchange="updateRantingAnggota()" <?php echo $filter_pengprov == 0 ? 'disabled' : ''; ?>>
+                            <option value="">-- Semua Pengurus Kota --</option>
+                            <?php 
+                            if ($filter_pengprov > 0) {
+                                $pengkot_filtered = $conn->query("SELECT id, nama_pengurus FROM pengurus WHERE jenis_pengurus = 'kota' AND pengurus_induk_id = $filter_pengprov ORDER BY nama_pengurus");
+                            } else {
+                                $pengkot_filtered = $conn->query("SELECT id, nama_pengurus FROM pengurus WHERE jenis_pengurus = 'kota' ORDER BY nama_pengurus");
+                            }
+                            while ($kota = $pengkot_filtered->fetch_assoc()): 
+                            ?>
+                                <option value="<?php echo $kota['id']; ?>" <?php echo $filter_pengkot == $kota['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($kota['nama_pengurus']); ?>
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
 
-                    <select name="filter_ranting">
-                        <option value="">-- Semua Unit / Ranting --</option>
-                        <?php 
-                        $ranting_result->data_seek(0);
-                        while ($rant = $ranting_result->fetch_assoc()): 
-                        ?>
-                        <option value="<?php echo $rant['id']; ?>" <?php echo $filter_ranting == $rant['id'] ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($rant['nama_ranting']); ?>
-                        </option>
-                        <?php endwhile; ?>
-                    </select>
+                    <!-- Filter 3: Unit/Ranting (CASCADE) -->
+                    <div>
+                        <select name="filter_ranting" id="filter_ranting_anggota" <?php echo $filter_pengkot == 0 ? 'disabled' : ''; ?>>
+                            <option value="">-- Semua Unit / Ranting --</option>
+                            <?php 
+                            if ($filter_pengkot > 0) {
+                                $ranting_filtered = $conn->query("SELECT id, nama_ranting FROM ranting WHERE pengurus_kota_id = $filter_pengkot ORDER BY nama_ranting");
+                                while ($rant = $ranting_filtered->fetch_assoc()): 
+                                ?>
+                                    <option value="<?php echo $rant['id']; ?>" <?php echo $filter_ranting == $rant['id'] ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($rant['nama_ranting']); ?>
+                                    </option>
+                                <?php endwhile;
+                            }
+                            ?>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Filter Teknis -->
@@ -588,9 +611,9 @@ if ($print_mode) {
                         $tingkatan_result->data_seek(0);
                         while ($ting = $tingkatan_result->fetch_assoc()): 
                         ?>
-                        <option value="<?php echo $ting['id']; ?>" <?php echo $filter_tingkat == $ting['id'] ? 'selected' : ''; ?>>
-                            <?php echo singkatTingkat($ting['nama_tingkat']); ?> (<?php echo $ting['nama_tingkat']; ?>)
-                        </option>
+                            <option value="<?php echo $ting['id']; ?>" <?php echo $filter_tingkat == $ting['id'] ? 'selected' : ''; ?>>
+                                <?php echo singkatTingkat($ting['nama_tingkat']); ?> (<?php echo $ting['nama_tingkat']; ?>)
+                            </option>
                         <?php endwhile; ?>
                     </select>
 
@@ -614,6 +637,86 @@ if ($print_mode) {
                 </div>
             </form>
         </div>
+
+        <script>
+            // Function untuk update dropdown PengKot via AJAX
+            function updatePengKotAnggota() {
+                const pengprovSelect = document.getElementById('filter_pengprov_anggota');
+                const pengkotSelect = document.getElementById('filter_pengkot_anggota');
+                const rantingSelect = document.getElementById('filter_ranting_anggota');
+                
+                const pengprovId = pengprovSelect.value;
+                
+                if (pengprovId === '') {
+                    // Jika tidak ada pengprov yang dipilih, disable pengkot dan ranting
+                    pengkotSelect.disabled = true;
+                    rantingSelect.disabled = true;
+                    pengkotSelect.innerHTML = '<option value="">-- Semua Pengurus Kota --</option>';
+                    rantingSelect.innerHTML = '<option value="">-- Semua Unit / Ranting --</option>';
+                    return;
+                }
+                
+                pengkotSelect.disabled = false;
+                
+                // Fetch pengkot yang ada di bawah pengprov ini
+                fetch('../../api/get_pengkot.php?pengprov_id=' + pengprovId)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            let html = '<option value="">-- Semua Pengurus Kota --</option>';
+                            data.data.forEach(pengkot => {
+                                html += '<option value="' + pengkot.id + '">' + pengkot.nama_pengurus + '</option>';
+                            });
+                            pengkotSelect.innerHTML = html;
+                            
+                            // Reset ranting dropdown
+                            rantingSelect.innerHTML = '<option value="">-- Semua Unit / Ranting --</option>';
+                            rantingSelect.disabled = true;
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+            }
+            
+            // Function untuk update dropdown Ranting via AJAX
+            function updateRantingAnggota() {
+                const pengkotSelect = document.getElementById('filter_pengkot_anggota');
+                const rantingSelect = document.getElementById('filter_ranting_anggota');
+                
+                const pengkotId = pengkotSelect.value;
+                
+                if (pengkotId === '') {
+                    // Jika tidak ada pengkot yang dipilih, disable ranting
+                    rantingSelect.disabled = true;
+                    rantingSelect.innerHTML = '<option value="">-- Semua Unit / Ranting --</option>';
+                    return;
+                }
+                
+                rantingSelect.disabled = false;
+                
+                // Fetch ranting yang ada di bawah pengkot ini
+                fetch('../../api/get_ranting.php?pengkot_id=' + pengkotId)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            let html = '<option value="">-- Semua Unit / Ranting --</option>';
+                            data.data.forEach(ranting => {
+                                html += '<option value="' + ranting.id + '">' + ranting.nama_ranting + '</option>';
+                            });
+                            rantingSelect.innerHTML = html;
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+            }
+        </script>
+
+        <style>
+            select:disabled {
+                background-color: #f5f5f5;
+                cursor: not-allowed;
+                opacity: 0.6;
+            }
+        </style>
+
         
         <!-- Tabel Anggota -->
         <div class="table-container">

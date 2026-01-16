@@ -1,14 +1,25 @@
 <?php
 /**
- * Function untuk render navbar dengan home button
+ * Function untuk render navbar dengan home button dan back button
  * @param string $page_title Judul halaman saat ini
- * @param string $back_url URL untuk tombol kembali (opsional)
+ * @param bool $show_back Tampilkan tombol kembali atau gunakan history.back()
  */
-function renderNavbar($page_title, $back_url = null) {
+function renderNavbar($page_title, $show_back = true) {
     $username = htmlspecialchars($_SESSION['nama'] ?? 'User');
     $role_label = isset($GLOBALS['permission_manager']) 
         ? $GLOBALS['permission_manager']->getRoleName()
         : ($_SESSION['role'] ?? 'User');
+    
+    // Mapping untuk role label yang lebih readable
+    $role_map = [
+        'admin' => 'Administrator',
+        'pengprov' => 'Pengurus Provinsi',
+        'pengkot' => 'Pengurus Kota',
+        'unit' => 'Unit / Ranting',
+        'tamu' => 'Tamu (Read Only)'
+    ];
+    
+    $role_display = $role_map[$_SESSION['role'] ?? ''] ?? $role_label;
     
     ?>
     <div class="navbar">
@@ -18,17 +29,16 @@ function renderNavbar($page_title, $back_url = null) {
         <div class="navbar-right">
             <div class="navbar-user-info">
                 <span class="user-name"><?php echo $username; ?></span>
-                <span class="user-role"><?php echo $role_label; ?></span>
+                <span class="user-role"><?php echo $role_display; ?></span>
             </div>
-            <div class="navbar-buttons">
-                <a href="<?php echo isset($back_url) ? $back_url : '../../index.php'; ?>" class="btn-navbar" title="Home">
+            <div class="navbar-buttons">                
+                <a href="../../index.php" class="btn-navbar" title="Home">
                     🏠 Home
                 </a>
-                <?php if ($back_url): ?>
-                <a href="javascript:history.back()" class="btn-navbar btn-secondary" title="Kembali">
+                <a href="<?php echo isset($_SERVER['HTTP_REFERER']) ? htmlspecialchars($_SERVER['HTTP_REFERER']) : '../../index.php'; ?>" 
+                   class="btn-navbar" title="Kembali ke halaman sebelumnya">
                     ← Kembali
                 </a>
-                <?php endif; ?>
                 <a href="../../logout.php" class="btn-navbar btn-danger" title="Logout">
                     🚪 Logout
                 </a>
@@ -45,6 +55,8 @@ function renderNavbar($page_title, $back_url = null) {
             justify-content: space-between;
             align-items: center;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+            gap: 15px;
         }
         
         .navbar-left h2 {
@@ -56,6 +68,7 @@ function renderNavbar($page_title, $back_url = null) {
             display: flex;
             align-items: center;
             gap: 25px;
+            flex-wrap: wrap;
         }
         
         .navbar-user-info {
@@ -63,6 +76,7 @@ function renderNavbar($page_title, $back_url = null) {
             flex-direction: column;
             align-items: flex-end;
             font-size: 13px;
+            min-width: 150px;
         }
         
         .user-name {
@@ -71,12 +85,13 @@ function renderNavbar($page_title, $back_url = null) {
         
         .user-role {
             opacity: 0.9;
-            font-size: 12px;
+            font-size: 11px;
         }
         
         .navbar-buttons {
             display: flex;
             gap: 8px;
+            flex-wrap: wrap;
         }
         
         .btn-navbar {
@@ -89,6 +104,7 @@ function renderNavbar($page_title, $back_url = null) {
             font-weight: 600;
             transition: all 0.3s;
             border: 1px solid rgba(255,255,255,0.3);
+            white-space: nowrap;
         }
         
         .btn-navbar:hover {
@@ -103,6 +119,27 @@ function renderNavbar($page_title, $back_url = null) {
         
         @media print {
             .navbar { display: none; }
+        }
+        
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                padding: 15px 20px;
+            }
+            
+            .navbar-left h2 {
+                font-size: 18px;
+            }
+            
+            .navbar-right {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .navbar-buttons {
+                width: 100%;
+                justify-content: flex-end;
+            }
         }
     </style>
     <?php

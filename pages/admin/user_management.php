@@ -39,6 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action_type'])) {
         $password = $_POST['password'];
         $nama_lengkap = $_POST['nama_lengkap'];
         $role = $_POST['role'];
+        $pengurus_id = !empty($_POST['pengurus_id']) ? (int)$_POST['pengurus_id'] : NULL;
+        $ranting_id = !empty($_POST['ranting_id']) ? (int)$_POST['ranting_id'] : NULL;
         
         // Check username sudah ada
         $check = $conn->query("SELECT id FROM users WHERE username = '$username'");
@@ -48,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action_type'])) {
             $hashed_password = password_hash($password, PASSWORD_BCRYPT);
             $sql = "INSERT INTO users (username, password, nama_lengkap, role, pengurus_id, ranting_id) VALUES (?, ?, ?, ?, ?, ?)";
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("ssssi", $username, $hashed_password, $nama_lengkap, $role, $pengurus_id, $ranting_id);
+            $stmt->bind_param("ssssii", $username, $hashed_password, $nama_lengkap, $role, $pengurus_id, $ranting_id);
             
             if ($stmt->execute()) {
                 $success = "User berhasil ditambahkan!";
@@ -104,6 +106,12 @@ if (isset($_GET['delete'])) {
 
 // Ambil data semua user
 $users_result = $conn->query("SELECT * FROM users ORDER BY created_at DESC");
+
+// Ambil daftar pengurus
+$pengurus_result = $conn->query("SELECT id, nama_pengurus FROM pengurus ORDER BY nama_pengurus");
+
+// Ambil daftar ranting
+$ranting_result = $conn->query("SELECT id, nama_ranting FROM ranting ORDER BY nama_ranting");
 ?>
 
 <!DOCTYPE html>
@@ -126,7 +134,7 @@ $users_result = $conn->query("SELECT * FROM users ORDER BY created_at DESC");
             align-items: center;
         }
         
-        .container { max-width: 1000px; margin: 20px auto; padding: 0 20px; }
+        .container { max-width: 1100px; margin: 20px auto; padding: 0 20px; }
         
         .alert {
             padding: 15px;
@@ -170,7 +178,7 @@ $users_result = $conn->query("SELECT * FROM users ORDER BY created_at DESC");
         .form-group { margin-bottom: 20px; }
         label { display: block; margin-bottom: 8px; font-weight: 600; }
         input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
-        input:focus, select:focus { outline: none; border-color: #667eea; }
+        input:focus, select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
         
         .form-row {
             display: grid;
@@ -179,6 +187,21 @@ $users_result = $conn->query("SELECT * FROM users ORDER BY created_at DESC");
         }
         
         .button-group { display: flex; gap: 10px; margin-top: 20px; }
+        
+        .role-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .role-admin { background: #667eea; }
+        .role-pengprov { background: #f093fb; }
+        .role-pengkot { background: #4facfe; }
+        .role-unit { background: #43e97b; }
+        .role-tamu { background: #6c757d; }
     </style>
 </head>
 <body>
@@ -220,11 +243,41 @@ $users_result = $conn->query("SELECT * FROM users ORDER BY created_at DESC");
                     
                     <div class="form-group">
                         <label>Role</label>
-                        <select name="role" required>
-                            <option value="user">User (Readonly)</option>
+                        <select name="role" id="role_add" onchange="updateRoleFields(this, 'add')" required>
+                            <option value="">-- Pilih Role --</option>
                             <option value="admin">Admin (Full Access)</option>
+                            <option value="pengprov">Pengurus Provinsi</option>
+                            <option value="pengkot">Pengurus Kota / Kabupaten</option>
+                            <option value="unit">Unit / Ranting</option>
+                            <option value="tamu">Tamu (Read Only)</option>
                         </select>
                     </div>
+                </div>
+                
+                <div id="pengurus_field_add" style="display: none;" class="form-group">
+                    <label>Pengurus</label>
+                    <select name="pengurus_id">
+                        <option value="">-- Pilih Pengurus (Opsional) --</option>
+                        <?php 
+                        $pengurus_result->data_seek(0);
+                        while ($row = $pengurus_result->fetch_assoc()): 
+                        ?>
+                            <option value="<?php echo $row['id']; ?>"><?php echo htmlspecialchars($row['nama_pengurus']); ?></option>
+                        <?php endwhile; ?>
+                    </select>
+                </div>
+                
+                <div id="ranting_field_add" style="display: none;" class="form-group">
+                    <label>Unit / Ranting</label>
+                    <select name="ranting_id">
+                        <option value="">-- Pilih Unit/Ranting (Opsional) --</option>
+                        <?php 
+                        $ranting_result->data_seek(0);
+                        while ($row = $ranting_result->fetch_assoc()): 
+                        ?>
+                            <option value="<?php echo $row['id']; ?>"><?php echo htmlspecialchars($row['nama_ranting']); ?></option>
+                        <?php endwhile; ?>
+                    </select>
                 </div>
                 
                 <div class="button-group">
@@ -241,28 +294,53 @@ $users_result = $conn->query("SELECT * FROM users ORDER BY created_at DESC");
                         <th>Username</th>
                         <th>Nama Lengkap</th>
                         <th>Role</th>
+                        <th>Organisasi</th>
                         <th>Terdaftar</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php while ($row = $users_result->fetch_assoc()): ?>
+                    <?php while ($row = $users_result->fetch_assoc()): 
+                        // Ambil nama pengurus dan ranting
+                        $pengurus_info = '';
+                        if ($row['pengurus_id']) {
+                            $org = $conn->query("SELECT nama_pengurus FROM pengurus WHERE id = " . $row['pengurus_id'])->fetch_assoc();
+                            if ($org) $pengurus_info = $org['nama_pengurus'];
+                        }
+                        
+                        if ($row['ranting_id']) {
+                            $org = $conn->query("SELECT nama_ranting FROM ranting WHERE id = " . $row['ranting_id'])->fetch_assoc();
+                            if ($org) {
+                                $pengurus_info = ($pengurus_info ? $pengurus_info . ' - ' : '') . $org['nama_ranting'];
+                            }
+                        }
+                    ?>
                     <tr>
                         <td><strong><?php echo htmlspecialchars($row['username']); ?></strong></td>
                         <td><?php echo htmlspecialchars($row['nama_lengkap']); ?></td>
                         <td>
-                            <span style="background: <?php echo ($row['role'] == 'admin' ? '#667eea' : '#6c757d'); ?>; color: white; padding: 4px 8px; border-radius: 3px; font-size: 12px; font-weight: 600;">
-                                <?php echo ucfirst($row['role']); ?>
+                            <span class="role-badge role-<?php echo $row['role']; ?>">
+                                <?php 
+                                $role_labels = [
+                                    'admin' => 'Admin',
+                                    'pengprov' => 'PengProv',
+                                    'pengkot' => 'PengKot',
+                                    'unit' => 'Unit',
+                                    'tamu' => 'Tamu'
+                                ];
+                                echo $role_labels[$row['role']] ?? ucfirst($row['role']);
+                                ?>
                             </span>
                         </td>
+                        <td><?php echo htmlspecialchars($pengurus_info ?: '-'); ?></td>
                         <td><?php echo date('d M Y', strtotime($row['created_at'])); ?></td>
                         <td>
-                            <a href="#" onclick="editUser(<?php echo $row['id']; ?>, '<?php echo htmlspecialchars($row['nama_lengkap']); ?>', '<?php echo $row['role']; ?>')" style="color: #667eea; text-decoration: none; font-weight: 600;">Edit</a> |
+                            <a href="#" onclick="editUser(<?php echo $row['id']; ?>, '<?php echo htmlspecialchars($row['nama_lengkap']); ?>', '<?php echo $row['role']; ?>', '<?php echo $row['pengurus_id'] ?? ''; ?>', '<?php echo $row['ranting_id'] ?? ''; ?>')" style="color: #667eea; text-decoration: none; font-weight: 600; margin-right: 10px;">Edit</a>
                             <?php if ($row['id'] != $_SESSION['user_id']): ?>
-                            <a href="#" onclick="resetPassword(<?php echo $row['id']; ?>)" style="color: #ffc107; text-decoration: none; font-weight: 600;">Reset Pass</a> |
+                            <a href="#" onclick="resetPassword(<?php echo $row['id']; ?>)" style="color: #ffc107; text-decoration: none; font-weight: 600; margin-right: 10px;">Reset Pass</a>
                             <a href="user_management.php?delete=<?php echo $row['id']; ?>" onclick="return confirm('Yakin hapus?')" style="color: #dc3545; text-decoration: none; font-weight: 600;">Hapus</a>
                             <?php else: ?>
-                            <span style="color: #999;">(Akun Anda)</span>
+                            <span style="color: #999; font-size: 12px;">(Akun Anda)</span>
                             <?php endif; ?>
                         </td>
                     </tr>
@@ -273,11 +351,37 @@ $users_result = $conn->query("SELECT * FROM users ORDER BY created_at DESC");
     </div>
     
     <script>
-        function editUser(id, nama, role) {
+        function updateRoleFields(selectElement, prefix = '') {
+            const role = selectElement.value;
+            const pengurusField = document.getElementById('pengurus_field_' + prefix);
+            const rantingField = document.getElementById('ranting_field_' + prefix);
+            
+            // Sembunyikan kedua field terlebih dahulu
+            pengurusField.style.display = 'none';
+            rantingField.style.display = 'none';
+            
+            // Tampilkan field sesuai role
+            if (role === 'pengprov' || role === 'pengkot') {
+                pengurusField.style.display = 'block';
+            } else if (role === 'unit') {
+                rantingField.style.display = 'block';
+            }
+        }
+        
+        function editUser(id, nama, role, pengurus_id, ranting_id) {
             let new_nama = prompt("Nama Lengkap:", nama);
             if (new_nama) {
-                let new_role = prompt("Role (admin/user):", role);
-                if (new_role && (new_role == 'admin' || new_role == 'user')) {
+                let new_role = prompt("Role:\n- admin\n- pengprov\n- pengkot\n- unit\n- tamu", role);
+                if (new_role && ['admin', 'pengprov', 'pengkot', 'unit', 'tamu'].includes(new_role)) {
+                    let new_pengurus = pengurus_id;
+                    let new_ranting = ranting_id;
+                    
+                    if (new_role === 'pengprov' || new_role === 'pengkot') {
+                        new_pengurus = prompt("ID Pengurus (atau kosongkan):", pengurus_id || '');
+                    } else if (new_role === 'unit') {
+                        new_ranting = prompt("ID Unit/Ranting (atau kosongkan):", ranting_id || '');
+                    }
+                    
                     let form = document.createElement('form');
                     form.method = 'POST';
                     form.innerHTML = `
@@ -285,6 +389,8 @@ $users_result = $conn->query("SELECT * FROM users ORDER BY created_at DESC");
                         <input type="hidden" name="user_id" value="${id}">
                         <input type="hidden" name="nama_lengkap" value="${new_nama}">
                         <input type="hidden" name="role" value="${new_role}">
+                        <input type="hidden" name="pengurus_id" value="${new_pengurus}">
+                        <input type="hidden" name="ranting_id" value="${new_ranting}">
                     `;
                     document.body.appendChild(form);
                     form.submit();
@@ -293,7 +399,7 @@ $users_result = $conn->query("SELECT * FROM users ORDER BY created_at DESC");
         }
         
         function resetPassword(id) {
-            let new_pass = prompt("Password baru:");
+            let new_pass = prompt("Password baru (min 6 karakter):");
             if (new_pass && new_pass.length >= 6) {
                 let form = document.createElement('form');
                 form.method = 'POST';
