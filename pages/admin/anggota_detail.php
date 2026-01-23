@@ -491,6 +491,9 @@ if ($foto_filename && file_exists($upload_dir . $foto_filename)) {
                 <?php if ($_SESSION['role'] == 'admin'): ?>
                 <div class="button-group">
                     <a href="anggota_edit.php?id=<?php echo $anggota['id']; ?>" class="btn btn-warning">✏️ Edit Data</a>
+                    <button onclick="window.print()" class="btn btn-warning" style="background: #6c757d;">
+                        🖨️ Print Detail
+                    </button>
                 </div>
                 <?php endif; ?>
             </div>

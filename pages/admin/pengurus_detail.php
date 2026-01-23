@@ -19,15 +19,82 @@ $permission_manager = new PermissionManager(
     $_SESSION['ranting_id'] ?? null
 );
 
-// Store untuk global use
 $GLOBALS['permission_manager'] = $permission_manager;
 
-// Check permission untuk action ini
 if (!$permission_manager->can('anggota_read')) {
     die("❌ Akses ditolak!");
 }
 
 $id = (int)$_GET['id'];
+$error = '';
+$success = '';
+
+// Handle SK upload
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['sk_file'])) {
+    $file = $_FILES['sk_file'];
+    
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        $error = "Error upload file!";
+    } else {
+        $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        
+        if ($file_ext != 'pdf') {
+            $error = "Hanya file PDF yang diperbolehkan!";
+        } elseif ($file['size'] > 5242880) { // 5MB
+            $error = "Ukuran file maksimal 5MB!";
+        } else {
+            $upload_dir = '../../uploads/sk_pengurus/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+            
+            // Get pengurus data untuk naming
+            $pengurus_data = $conn->query("SELECT * FROM pengurus WHERE id = $id")->fetch_assoc();
+            $nama_clean = preg_replace("/[^a-z0-9 -]/i", "_", $pengurus_data['nama_pengurus']);
+            $nama_clean = str_replace(" ", "_", $nama_clean);
+            
+            // Get next revision number
+            $pattern = 'SK-' . $nama_clean . '-';
+            $max_revision = 0;
+            
+            if (is_dir($upload_dir)) {
+                $files = scandir($upload_dir);
+                foreach ($files as $f) {
+                    if (strpos($f, $pattern) === 0) {
+                        if (preg_match('/-(\d{2})\.[^.]+$/', $f, $matches)) {
+                            $revision = (int)$matches[1];
+                            if ($revision > $max_revision) {
+                                $max_revision = $revision;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            $next_revision = $max_revision + 1;
+            $file_name = $pattern . str_pad($next_revision, 2, '0', STR_PAD_LEFT) . '.pdf';
+            $file_path = $upload_dir . $file_name;
+            
+            if (move_uploaded_file($file['tmp_name'], $file_path)) {
+                $success = "SK berhasil diupload! (Revisi " . str_pad($next_revision, 2, '0', STR_PAD_LEFT) . ")";
+            } else {
+                $error = "Gagal menyimpan file!";
+            }
+        }
+    }
+}
+
+// Handle SK delete
+if (isset($_GET['delete_sk']) && $_SESSION['role'] == 'admin') {
+    $sk_file = basename($_GET['delete_sk']);
+    $upload_dir = '../../uploads/sk_pengurus/';
+    $file_path = $upload_dir . $sk_file;
+    
+    if (file_exists($file_path) && is_file($file_path)) {
+        unlink($file_path);
+        $success = "SK berhasil dihapus!";
+    }
+}
 
 $sql = "SELECT p.*, 
         (SELECT nama_pengurus FROM pengurus p2 WHERE p2.id = p.pengurus_induk_id) as pengurus_induk
@@ -42,9 +109,28 @@ if ($result->num_rows == 0) {
 
 $pengurus = $result->fetch_assoc();
 
-// Ambil anak pengurus (jika ada)
+// Ambil anak pengurus
 $anak_sql = "SELECT id, nama_pengurus, jenis_pengurus FROM pengurus WHERE pengurus_induk_id = $id ORDER BY nama_pengurus";
 $anak_result = $conn->query($anak_sql);
+
+// Cari SK files
+$upload_dir = '../../uploads/sk_pengurus/';
+$sk_files = [];
+
+if (is_dir($upload_dir)) {
+    $nama_clean = preg_replace("/[^a-z0-9 -]/i", "_", $pengurus['nama_pengurus']);
+    $nama_clean = str_replace(" ", "_", $nama_clean);
+    $pattern = 'SK-' . $nama_clean . '-';
+    
+    $files = scandir($upload_dir);
+    foreach ($files as $file) {
+        if (strpos($file, $pattern) === 0) {
+            $sk_files[] = $file;
+        }
+    }
+    
+    rsort($sk_files);
+}
 
 // Label jenis
 $label_jenis = [
@@ -53,20 +139,31 @@ $label_jenis = [
     'kota' => 'Pengurus Kota'
 ];
 
-// Hitung ranting di pengurus kota ini
+// Ranting count (khusus pengurus kota)
 $ranting_count = 0;
 $ranting_result = NULL;
 if ($pengurus['jenis_pengurus'] == 'kota') {
     $r = $conn->query("SELECT COUNT(*) as count FROM ranting WHERE pengurus_kota_id = $id")->fetch_assoc();
     $ranting_count = $r['count'];
-    
-    // Ambil daftar ranting
     $ranting_result = $conn->query("SELECT id, nama_ranting, jenis, ketua_nama FROM ranting WHERE pengurus_kota_id = $id ORDER BY nama_ranting");
 }
 
-// Cek status aktif/tidak aktif
+// Status aktif
 $status = (strtotime($pengurus['periode_akhir']) >= strtotime(date('Y-m-d'))) ? 'Aktif' : 'Tidak Aktif';
 $status_class = $status == 'Aktif' ? 'status-aktif' : 'status-tidak';
+
+// Format tanggal to DD-MM-YYYY
+function formatTanggal($date) {
+    if (empty($date)) return '-';
+    return date('d-m-Y', strtotime($date));
+}
+
+function getRevisionNumber($filename) {
+    if (preg_match('/-(\d{2})\.[^.]+$/', $filename, $matches)) {
+        return (int)$matches[1];
+    }
+    return 0;
+}
 ?>
 
 <!DOCTYPE html>
@@ -149,25 +246,8 @@ $status_class = $status == 'Aktif' ? 'status-aktif' : 'status-tidak';
             font-weight: 600;
             background: #e3f2fd;
             color: #1976d2;
+            border: 1px solid #1976d2;
             margin-right: 10px;
-        }
-        
-        .badge-pusat {
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
-            color: #667eea;
-            border: 1px solid #667eea;
-        }
-        
-        .badge-provinsi {
-            background: linear-gradient(135deg, rgba(240, 147, 251, 0.2) 0%, rgba(245, 87, 108, 0.2) 100%);
-            color: #f5576c;
-            border: 1px solid #f5576c;
-        }
-        
-        .badge-kota {
-            background: linear-gradient(135deg, rgba(79, 172, 254, 0.2) 0%, rgba(0, 242, 254, 0.2) 100%);
-            color: #4facfe;
-            border: 1px solid #4facfe;
         }
         
         .status-aktif {
@@ -290,6 +370,24 @@ $status_class = $status == 'Aktif' ? 'status-aktif' : 'status-tidak';
             transform: translateY(-2px);
         }
         
+        .btn-download {
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            font-size: 13px;
+        }
+        
+        .btn-download:hover {
+            background: #218838;
+        }
+        
+        .btn-danger-small {
+            background: #dc3545;
+            color: white;
+            padding: 6px 12px;
+            font-size: 11px;
+        }
+        
         .button-group {
             margin-top: 20px;
             padding-top: 20px;
@@ -331,6 +429,72 @@ $status_class = $status == 'Aktif' ? 'status-aktif' : 'status-tidak';
         .link-nav:hover {
             text-decoration: underline;
         }
+        
+        .sk-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .sk-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .sk-info {
+            flex: 1;
+        }
+        
+        .sk-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 16px;
+        }
+        
+        .sk-meta {
+            font-size: 12px;
+            color: #999;
+            margin-top: 8px;
+        }
+        
+        .sk-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border-left: 4px solid;
+        }
+        
+        .alert-error { background: #fff5f5; color: #c00; border-left-color: #dc3545; }
+        .alert-success { background: #f0fdf4; color: #060; border-left-color: #28a745; }
+        
+        .sk-upload-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px dashed #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .sk-upload-form input[type="file"] {
+            display: block;
+            margin: 15px 0;
+        }
+        
+        @media print {
+            .navbar, .button-group, .sk-upload-form, .btn { display: none; }
+        }
     </style>
 </head>
 <body>
@@ -343,14 +507,20 @@ $status_class = $status == 'Aktif' ? 'status-aktif' : 'status-tidak';
             <strong><?php echo htmlspecialchars($pengurus['nama_pengurus']); ?></strong>
         </div>
         
+        <?php if ($error): ?>
+            <div class="alert alert-error">⚠️ <?php echo $error; ?></div>
+        <?php endif; ?>
+        
+        <?php if ($success): ?>
+            <div class="alert alert-success">✅ <?php echo $success; ?></div>
+        <?php endif; ?>
+        
         <!-- Header Card -->
         <div class="header-card">
             <div class="header-info">
                 <h1><?php echo htmlspecialchars($pengurus['nama_pengurus']); ?></h1>
                 <p style="margin-bottom: 15px;">
-                    <span class="badge badge-<?php echo $pengurus['jenis_pengurus']; ?>">
-                        <?php echo $label_jenis[$pengurus['jenis_pengurus']]; ?>
-                    </span>
+                    <span class="badge"><?php echo $label_jenis[$pengurus['jenis_pengurus']]; ?></span>
                     <span class="<?php echo $status_class; ?>">● <?php echo $status; ?></span>
                 </p>
                 <p><strong>Ketua:</strong> <?php echo htmlspecialchars($pengurus['ketua_nama'] ?? '-'); ?></p>
@@ -358,7 +528,7 @@ $status_class = $status == 'Aktif' ? 'status-aktif' : 'status-tidak';
             
             <?php if ($_SESSION['role'] == 'admin'): ?>
             <div>
-                <a href="pengurus_edit.php?id=<?php echo $id; ?>" class="btn btn-warning">✏️ Edit</a>
+                <a href="pengurus_edit.php?id=<?php echo $id; ?>" class="btn btn-warning">✏️ Edit Data</a>
             </div>
             <?php endif; ?>
         </div>
@@ -379,7 +549,7 @@ $status_class = $status == 'Aktif' ? 'status-aktif' : 'status-tidak';
             
             <div class="info-row">
                 <div class="label">Periode</div>
-                <div class="value"><?php echo date('d M Y', strtotime($pengurus['periode_mulai'])); ?> - <?php echo date('d M Y', strtotime($pengurus['periode_akhir'])); ?></div>
+                <div class="value"><?php echo formatTanggal($pengurus['periode_mulai']); ?> - <?php echo formatTanggal($pengurus['periode_akhir']); ?></div>
             </div>
             
             <?php if ($pengurus['pengurus_induk']): ?>
@@ -394,9 +564,66 @@ $status_class = $status == 'Aktif' ? 'status-aktif' : 'status-tidak';
             <?php endif; ?>
         </div>
         
+        <!-- SK Pembentukan Section -->
+        <div class="info-card">
+            <h3>📄 SK Pembentukan</h3>
+            
+            <?php if ($_SESSION['role'] == 'admin'): ?>
+            <div class="sk-upload-form">
+                <form method="POST" enctype="multipart/form-data">
+                    <label>Upload SK Baru (PDF)</label>
+                    <input type="file" name="sk_file" accept=".pdf" required>
+                    <div style="font-size: 12px; color: #999; margin-top: 8px;">
+                        Format: PDF | Ukuran maksimal: 5MB<br>
+                        Setiap upload baru akan otomatis menambah nomor revisi
+                    </div>
+                    <button type="submit" class="btn btn-download" style="margin-top: 10px;">📁 Upload SK</button>
+                </form>
+            </div>
+            <?php endif; ?>
+            
+            <div class="sk-section">
+                <?php if (count($sk_files) > 0): ?>
+                    <?php foreach ($sk_files as $sk_file): 
+                        $file_path = $upload_dir . $sk_file;
+                        $file_size = filesize($file_path);
+                        $file_size_kb = round($file_size / 1024, 2);
+                        $revisi = getRevisionNumber($sk_file);
+                        $upload_time = filectime($file_path);
+                    ?>
+                    <div class="sk-card">
+                        <div class="sk-info">
+                            <div class="sk-name">
+                                📄 <?php echo htmlspecialchars($sk_file); ?>
+                            </div>
+                            <div class="sk-meta">
+                                <strong>Revisi:</strong> <?php echo str_pad($revisi, 2, '0', STR_PAD_LEFT); ?> | 
+                                <strong>Upload:</strong> <?php echo formatTanggal(date('Y-m-d', $upload_time)); ?> | 
+                                <strong>Ukuran:</strong> <?php echo $file_size_kb; ?> KB
+                            </div>
+                        </div>
+                        <div class="sk-actions">
+                            <a href="sk_download_pengurus.php?file=<?php echo urlencode($sk_file); ?>&id=<?php echo $id; ?>" 
+                               class="btn btn-download">📥 Download</a>
+                            <?php if ($_SESSION['role'] == 'admin'): ?>
+                            <a href="pengurus_detail.php?id=<?php echo $id; ?>&delete_sk=<?php echo urlencode($sk_file); ?>" 
+                               class="btn btn-danger-small" onclick="return confirm('Hapus SK ini?')">Hapus</a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>Belum ada SK pembentukan yang diupload</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+        
         <!-- Struktur Organisasi -->
         <div class="info-card">
-            <h3>👤 Struktur Organisasi</h3>
+            <h3>👥 Struktur Organisasi</h3>
             
             <div class="info-row">
                 <div class="label">Ketua</div>
@@ -443,7 +670,6 @@ $status_class = $status == 'Aktif' ? 'status-aktif' : 'status-tidak';
                     <?php 
                     $anak_result->data_seek(0);
                     while ($row = $anak_result->fetch_assoc()): 
-                        // Ambil detail pengurus anak
                         $child_detail = $conn->query("SELECT ketua_nama, periode_mulai, periode_akhir FROM pengurus WHERE id = " . $row['id'])->fetch_assoc();
                     ?>
                     <tr>
@@ -464,7 +690,7 @@ $status_class = $status == 'Aktif' ? 'status-aktif' : 'status-tidak';
         <!-- Unit/Ranting yang Dinaungi (khusus Pengurus Kota) -->
         <?php if ($pengurus['jenis_pengurus'] == 'kota'): ?>
         <div class="info-card">
-            <h3>🏢 Unit / Ranting yang Dinaungi</h3>
+            <h3>🌳 Unit / Ranting yang Dinaungi</h3>
             
             <?php if ($ranting_count > 0): ?>
             <div class="stat-grid">
@@ -498,7 +724,7 @@ $status_class = $status == 'Aktif' ? 'status-aktif' : 'status-tidak';
             </table>
             <?php else: ?>
             <div class="empty-state">
-                <div class="empty-state-icon">🏢</div>
+                <div class="empty-state-icon">🌳</div>
                 <p>Belum ada unit/ranting yang dinaungi</p>
             </div>
             <?php endif; ?>

@@ -178,6 +178,9 @@ $is_readonly = $_SESSION['role'] == 'user';
             <?php if (!$is_readonly): ?>
             <a href="ukt_tambah_peserta.php?id=<?php echo $id; ?>" class="btn btn-primary" style="margin-bottom: 20px;">+ Tambah Peserta</a>
             <a href="ukt_input_nilai.php?id=<?php echo $id; ?>" class="btn btn-warning" style="margin-bottom: 20px;">📝 Input Nilai</a>
+            <button onclick="window.print()" class="btn btn-warning" style="background: #6c757d;">
+                🖨️ Print Daftar Peserta UKT
+            </button>
             <?php endif; ?>
             
             <?php if ($total_peserta > 0): ?>

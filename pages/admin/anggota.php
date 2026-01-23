@@ -530,7 +530,7 @@ if ($print_mode) {
             <div class="button-row">
                 <?php if (!$is_readonly): ?>
                 <a href="anggota_tambah.php" class="btn btn-primary">+ Tambah Anggota</a>
-                <a href="anggota_import.php" class="btn btn-success">⬆️ Import Excel</a>
+                <a href="anggota_import.php" class="btn btn-success">⬆️ Import CSV</a>
                 <?php endif; ?>
                 <button onclick="window.location.href='?<?php echo http_build_query($_GET); ?>&print=1'" class="btn btn-print">🖨️ Cetak</button>
             </div>

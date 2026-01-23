@@ -1,16 +1,59 @@
 <?php
 /**
- * Function untuk render navbar dengan home button dan back button
+ * Function untuk render navbar dengan tombol kembali ke parent page
  * @param string $page_title Judul halaman saat ini
- * @param bool $show_back Tampilkan tombol kembali atau gunakan history.back()
+ * @param string $back_url URL untuk tombol kembali (auto-detect jika kosong)
  */
-function renderNavbar($page_title) {
-    // Initialize navigation history
-    if (!function_exists('initNavigationHistory')) {
-        include_once __DIR__ . '/history_navigator.php';    
+function renderNavbar($page_title, $back_url = null) {
+    // Auto-detect back URL berdasarkan halaman saat ini
+    if ($back_url === null) {
+        $current_file = basename($_SERVER['PHP_SELF']);
+        
+        // Mapping file ke parent page
+        $back_map = [
+            'anggota_detail.php' => 'anggota.php',
+            'anggota_edit.php' => 'anggota.php',
+            'anggota_tambah.php' => 'anggota.php',
+            'anggota_import.php' => 'anggota.php',
+            'anggota_hapus.php' => 'anggota.php',
+            
+            'ukt_detail.php' => 'ukt.php',
+            'ukt_buat.php' => 'ukt.php',
+            'ukt_input_nilai.php' => 'ukt.php',
+            'ukt_tambah_peserta.php' => 'ukt.php',
+            'ukt_import_nilai.php' => 'ukt.php',
+            'ukt_hapus_peserta.php' => 'ukt.php',
+            
+            'kerohanian_detail.php' => 'kerohanian.php',
+            'kerohanian_edit.php' => 'kerohanian.php',
+            'kerohanian_tambah.php' => 'kerohanian.php',
+            'kerohanian_import.php' => 'kerohanian.php',
+            'kerohanian_hapus.php' => 'kerohanian.php',
+            
+            'pengurus_detail.php' => 'pengurus.php',
+            'pengurus_edit.php' => 'pengurus.php',
+            'pengurus_tambah.php' => 'pengurus.php',
+            'pengurus_list.php' => 'pengurus.php',
+            'pengurus_import.php' => 'pengurus.php',
+            'pengurus_hapus.php' => 'pengurus.php',
+            
+            'ranting_detail.php' => 'ranting.php',
+            'ranting_edit.php' => 'ranting.php',
+            'ranting_tambah.php' => 'ranting.php',
+            'ranting_import.php' => 'ranting.php',
+            'ranting_hapus.php' => 'ranting.php',
+            
+            'jadwal_latihan.php' => '../../index.php',
+            'settings.php' => '../../index.php',
+            'user_management.php' => '../../index.php',
+        ];
+        
+        if (isset($back_map[$current_file])) {
+            $back_url = $back_map[$current_file];
+        } else {
+            $back_url = '../../index.php';
+        }
     }
-    
-    initNavigationHistory();
     
     $username = htmlspecialchars($_SESSION['nama'] ?? 'User');
     $role_label = isset($GLOBALS['permission_manager']) 
@@ -28,9 +71,6 @@ function renderNavbar($page_title) {
     
     $role_display = $role_map[$_SESSION['role'] ?? ''] ?? $role_label;
     
-    // Get back button URL
-    $back_url = getBackButtonUrl('../../index.php');
-    
     ?>
     <div class="navbar">
         <div class="navbar-left">
@@ -45,7 +85,7 @@ function renderNavbar($page_title) {
                 <a href="../../index.php" class="btn-navbar" title="Home">
                     🏠 Home
                 </a>
-                <a href="<?php echo isset($_SERVER['HTTP_REFERER']) ? htmlspecialchars($_SERVER['HTTP_REFERER']) : '../../index.php'; ?>" 
+                <a href="<?php echo htmlspecialchars($back_url); ?>" 
                    class="btn-navbar" title="Kembali ke halaman sebelumnya">
                     ← Kembali
                 </a>

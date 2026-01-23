@@ -345,6 +345,9 @@ function get_revision_number($filename) {
         
         <?php if ($_SESSION['role'] == 'admin'): ?>
         <div class="button-group">
+            <button onclick="window.print()" class="btn btn-warning" style="background: #6c757d;">
+                🖨️ Print Detail
+            </button>
             <a href="ranting_edit.php?id=<?php echo $id; ?>" class="btn btn-warning">✏️ Edit Data</a>
         </div>
         <?php endif; ?>

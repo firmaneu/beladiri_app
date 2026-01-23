@@ -162,7 +162,10 @@ $is_readonly = $_SESSION['role'] == 'user';
             <div>
                 <h1>Daftar Unit / Ranting</h1>
                 <p style="color: #666;">Total: <strong><?php echo $total_ranting; ?></strong></p>
-            </div>
+            </div>            
+            <a href="javascript:void(0)" onclick="printTable()" class="btn" style="background: #6c757d; color: white;">
+                🖨️ Print Daftar
+            </a>
             <?php if (!$is_readonly): ?>
             <a href="ranting_tambah.php" class="btn btn-primary">+ Tambah Unit/Ranting</a>
             <?php endif; ?>
@@ -231,5 +234,10 @@ $is_readonly = $_SESSION['role'] == 'user';
             <?php endif; ?>
         </div>
     </div>
+    <script>
+    function printTable() {
+        window.print();
+    }
+    </script>
 </body>
 </html>

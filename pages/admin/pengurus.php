@@ -57,6 +57,33 @@ $kota = $conn->query("SELECT COUNT(*) as count FROM pengurus WHERE jenis_penguru
         h1 { color: #333; margin-bottom: 10px; }
         .subtitle { color: #666; margin-bottom: 30px; }
         
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
         .cards-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -140,7 +167,8 @@ $kota = $conn->query("SELECT COUNT(*) as count FROM pengurus WHERE jenis_penguru
         <p class="subtitle">Kelola data pengurus pusat, provinsi, dan kota/kabupaten</p>
         
         <div class="info-box">
-            <strong>ℹ️ Informasi:</strong> Pilih salah satu jenis kepengurusan di bawah untuk mengelola data struktur organisasi.
+            <strong>ℹ️ Informasi : </strong> Pilih salah satu jenis kepengurusan di bawah untuk mengelola data struktur organisasi.
+            <a href="pengurus_import.php" class="btn btn-success">⬆️ Import CSV</a>
         </div>
         
         <div class="cards-grid">
