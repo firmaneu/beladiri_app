@@ -240,6 +240,11 @@ function get_revision_number($filename) {
                 <div class="label">Tanggal SK</div>
                 <div class="value"><?php echo date('d M Y', strtotime($ranting['tanggal_sk_pembentukan'])); ?></div>
             </div>
+
+            <div class="info-row">
+                <div class="label">No SK Pembentukan</div>
+                <div class="value"><?php echo htmlspecialchars($ranting['no_sk_pembentukan'] ?? '-'); ?></div>
+            </div>
             
             <div class="info-row">
                 <div class="label">Alamat</div>

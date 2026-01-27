@@ -19,12 +19,10 @@ $permission_manager = new PermissionManager(
     $_SESSION['ranting_id'] ?? null
 );
 
-// Store untuk global use
 $GLOBALS['permission_manager'] = $permission_manager;
 
-// Check permission untuk action ini
 if (!$permission_manager->can('anggota_read')) {
-    die("❌ Akses ditolak!");
+    die("âŒ Akses ditolak!");
 }
 
 $error = '';
@@ -36,19 +34,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $tanggal_pembukaan = $_POST['tanggal_pembukaan'];
     $lokasi = $conn->real_escape_string($_POST['lokasi']);
     $pembuka_nama = $conn->real_escape_string($_POST['pembuka_nama']);
+    $penyelenggara = $conn->real_escape_string($_POST['penyelenggara']);
+    $tingkat_pembuka_id = !empty($_POST['tingkat_pembuka_id']) ? (int)$_POST['tingkat_pembuka_id'] : NULL;
     
     // Cek apakah sudah pernah pembukaan kerohanian
     $check = $conn->query("SELECT id FROM kerohanian WHERE anggota_id = $anggota_id");
     if ($check->num_rows > 0) {
         $error = "Anggota sudah memiliki pembukaan kerohanian!";
     } else {
-        $sql = "INSERT INTO kerohanian (anggota_id, ranting_id, tanggal_pembukaan, lokasi, pembuka_nama)
-                VALUES (?, ?, ?, ?, ?)";
+        $sql = "INSERT INTO kerohanian (anggota_id, ranting_id, tanggal_pembukaan, lokasi, pembuka_nama, penyelenggara, tingkat_pembuka_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)";
         
         $stmt = $conn->prepare($sql);
         
         if ($stmt) {
-            $stmt->bind_param("iisss", $anggota_id, $ranting_id, $tanggal_pembukaan, $lokasi, $pembuka_nama);
+            $stmt->bind_param("iisssssi", $anggota_id, $ranting_id, $tanggal_pembukaan, $lokasi, $pembuka_nama, $penyelenggara, $tingkat_pembuka_id);
             
             if ($stmt->execute()) {
                 // Update status kerohanian di anggota
@@ -75,6 +75,9 @@ $anggota_result = $conn->query("SELECT a.id, a.no_anggota, a.nama_lengkap
 
 // Ambil daftar ranting
 $ranting_result = $conn->query("SELECT id, nama_ranting FROM ranting ORDER BY nama_ranting");
+
+// Ambil daftar tingkat
+$tingkat_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER BY urutan");
 ?>
 
 <!DOCTYPE html>
@@ -111,6 +114,7 @@ $ranting_result = $conn->query("SELECT id, nama_ranting FROM ranting ORDER BY na
             margin-bottom: 8px;
             color: #333;
             font-weight: 600;
+            font-size: 14px;
         }
         
         input[type="text"], input[type="date"], select {
@@ -131,8 +135,10 @@ $ranting_result = $conn->query("SELECT id, nama_ranting FROM ranting ORDER BY na
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            gap: 25px;
         }
+        
+        .form-row.full { grid-template-columns: 1fr; }
         
         .required { color: #dc3545; }
         .form-hint { font-size: 12px; color: #999; margin-top: 6px; }
@@ -164,18 +170,18 @@ $ranting_result = $conn->query("SELECT id, nama_ranting FROM ranting ORDER BY na
     </style>
 </head>
 <body>
-    <?php renderNavbar('➕ Tambah Kerohanian'); ?>
+    <?php renderNavbar('âž• Tambah Kerohanian'); ?>
 
     <div class="container">
         <div class="form-container">
             <h1>Formulir Pencatatan Pembukaan Kerohanian</h1>
             
             <?php if ($error): ?>
-                <div class="alert alert-error">⚠️ <?php echo $error; ?></div>
+                <div class="alert alert-error">âš ï¸ <?php echo $error; ?></div>
             <?php endif; ?>
             
             <?php if ($success): ?>
-                <div class="alert alert-success">✓ <?php echo $success; ?></div>
+                <div class="alert alert-success">âœ" <?php echo $success; ?></div>
             <?php endif; ?>
             
             <form method="POST">
@@ -218,13 +224,34 @@ $ranting_result = $conn->query("SELECT id, nama_ranting FROM ranting ORDER BY na
                     </div>
                     
                     <div class="form-group">
-                        <label>Nama Pembuka<span class="required">*</span></label>
+                        <label>Nama Pembuka <span class="required">*</span></label>
                         <input type="text" name="pembuka_nama" required placeholder="Nama pembuka kerohanian">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Penyelenggara <span class="required">*</span></label>
+                        <input type="text" name="penyelenggara" required placeholder="Nama organisasi penyelenggara">
+                        <div class="form-hint">Organisasi yang menyelenggarakan pembukaan kerohanian</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tingkat Pembuka <span class="required">*</span></label>
+                        <select name="tingkat_pembuka_id" required>
+                            <option value="">-- Pilih Tingkat --</option>
+                            <?php while ($row = $tingkat_result->fetch_assoc()): ?>
+                                <option value="<?php echo $row['id']; ?>">
+                                    <?php echo htmlspecialchars($row['nama_tingkat']); ?>
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                        <div class="form-hint">Tingkat pembuka kerohanian</div>
                     </div>
                 </div>
                 
                 <div class="button-group">
-                    <button type="submit" class="btn btn-primary">💾 Simpan</button>
+                    <button type="submit" class="btn btn-primary">ðŸ'¾ Simpan</button>
                     <a href="kerohanian.php" class="btn btn-secondary">Batal</a>
                 </div>
             </form>

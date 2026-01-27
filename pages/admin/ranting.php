@@ -24,11 +24,13 @@ $GLOBALS['permission_manager'] = $permission_manager;
 
 // Check permission untuk action ini
 if (!$permission_manager->can('anggota_read')) {
-    die("❌ Akses ditolak!");
+    die("âŒ Akses ditolak!");
 }
 
 $search = isset($_GET['search']) ? $_GET['search'] : '';
 $filter_jenis = isset($_GET['filter_jenis']) ? $_GET['filter_jenis'] : '';
+$filter_pengprov = isset($_GET['filter_pengprov']) ? (int)$_GET['filter_pengprov'] : 0;
+$filter_pengkot = isset($_GET['filter_pengkot']) ? (int)$_GET['filter_pengkot'] : 0;
 
 $sql = "SELECT r.*, p.nama_pengurus FROM ranting r 
         LEFT JOIN pengurus p ON r.pengurus_kota_id = p.id
@@ -36,12 +38,20 @@ $sql = "SELECT r.*, p.nama_pengurus FROM ranting r
 
 if ($search) {
     $search = $conn->real_escape_string($search);
-    $sql .= " AND (r.nama_ranting LIKE '%$search%' OR r.alamat LIKE '%$search%')";
+    $sql .= " AND (r.nama_ranting LIKE '%" . $search . "%' OR r.alamat LIKE '%" . $search . "%')";
 }
 
 if ($filter_jenis) {
     $filter_jenis = $conn->real_escape_string($filter_jenis);
-    $sql .= " AND r.jenis = '$filter_jenis'";
+    $sql .= " AND r.jenis = '" . $filter_jenis . "'";
+}
+
+if ($filter_pengprov > 0) {
+    $sql .= " AND p.pengurus_induk_id = " . intval($filter_pengprov);
+}
+
+if ($filter_pengkot > 0) {
+    $sql .= " AND r.pengurus_kota_id = " . intval($filter_pengkot);
 }
 
 $sql .= " ORDER BY r.nama_ranting";
@@ -49,7 +59,14 @@ $sql .= " ORDER BY r.nama_ranting";
 $result = $conn->query($sql);
 $total_ranting = $result->num_rows;
 
-$pengurus_result = $conn->query("SELECT id, nama_pengurus FROM pengurus WHERE jenis_pengurus = 'kota' ORDER BY nama_pengurus");
+// Ambil daftar pengurus untuk dropdown
+$pengprov_result = $conn->query("SELECT id, nama_pengurus FROM pengurus WHERE jenis_pengurus = 'provinsi' ORDER BY nama_pengurus");
+$pengkot_result = null;
+
+if ($filter_pengprov > 0) {
+    $pengkot_result = $conn->query("SELECT id, nama_pengurus FROM pengurus WHERE jenis_pengurus = 'kota' AND pengurus_induk_id = " . intval($filter_pengprov) . " ORDER BY nama_pengurus");
+}
+
 $is_readonly = $_SESSION['role'] == 'user';
 ?>
 
@@ -58,7 +75,8 @@ $is_readonly = $_SESSION['role'] == 'user';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manajemen Unit/Ranting - Sistem Beladiri</title>
+    <title>Manajemen Unit/Ranting - Kelatnas Indonesia Perisai Diri</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; background-color: #f5f5f5; }
@@ -73,8 +91,10 @@ $is_readonly = $_SESSION['role'] == 'user';
         }
         
         .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
         .header h1 { color: #333; }
+        
+        .button-group { display: flex; gap: 10px; flex-wrap: wrap; }
         
         .btn {
             padding: 10px 20px;
@@ -84,13 +104,15 @@ $is_readonly = $_SESSION['role'] == 'user';
             text-decoration: none;
             display: inline-block;
             font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
         }
         
         .btn-primary { background: #667eea; color: white; }
-        .btn-info { background: #17a2b8; color: white; }
-        .btn-warning { background: #ffc107; color: black; }
-        .btn-danger { background: #dc3545; color: white; }
-        .btn-small { padding: 6px 12px; font-size: 12px; margin: 2px; }
+        .btn-primary:hover { background: #5568d3; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-print { background: #6c757d; color: white; }
         
         .search-filter {
             background: white;
@@ -98,6 +120,15 @@ $is_readonly = $_SESSION['role'] == 'user';
             border-radius: 8px;
             margin-bottom: 20px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .filter-section-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
         .filter-row {
@@ -121,11 +152,18 @@ $is_readonly = $_SESSION['role'] == 'user';
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
         
+        select:disabled {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
         .table-container {
             background: white;
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            overflow-x: auto;
         }
         
         table { width: 100%; border-collapse: collapse; }
@@ -135,8 +173,9 @@ $is_readonly = $_SESSION['role'] == 'user';
             text-align: left;
             font-weight: 600;
             border-bottom: 2px solid #ddd;
+            font-size: 13px;
         }
-        td { padding: 12px 15px; border-bottom: 1px solid #eee; }
+        td { padding: 12px 15px; border-bottom: 1px solid #eee; font-size: 13px; }
         tr:hover { background: #f9f9f9; }
         
         .badge {
@@ -151,8 +190,41 @@ $is_readonly = $_SESSION['role'] == 'user';
         .badge-ranting { background: #f3e5f5; color: #7b1fa2; }
         .badge-unit { background: #fff3e0; color: #e65100; }
         
-        .no-data { text-align: center; padding: 40px; color: #999; }
+        .action-icons {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        
+        .icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 12px;
+            transition: all 0.3s;
+            color: white;
+        }
+        
+        .icon-view { background: #3498db; }
+        .icon-view:hover { background: #2980b9; }
+        .icon-edit { background: #f39c12; }
+        .icon-edit:hover { background: #d68910; }
+        .icon-delete { background: #e74c3c; }
+        .icon-delete:hover { background: #c0392b; }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
     </style>
+    <link rel="stylesheet" href="../../styles/print.css">
 </head>
 <body>
     <?php renderNavbar('🏢 Manajemen Unit / Ranting'); ?>
@@ -161,18 +233,21 @@ $is_readonly = $_SESSION['role'] == 'user';
         <div class="header">
             <div>
                 <h1>Daftar Unit / Ranting</h1>
-                <p style="color: #666;">Total: <strong><?php echo $total_ranting; ?></strong></p>
-            </div>            
-            <a href="javascript:void(0)" onclick="printTable()" class="btn" style="background: #6c757d; color: white;">
-                🖨️ Print Daftar
-            </a>
-            <?php if (!$is_readonly): ?>
-            <a href="ranting_tambah.php" class="btn btn-primary">+ Tambah Unit/Ranting</a>
-            <?php endif; ?>
+                <p style="color: #666; margin-top: 5px;">Total: <strong><?php echo $total_ranting; ?></strong></p>
+            </div>
+            <div class="button-group">
+                <?php if (!$is_readonly): ?>
+                <a href="ranting_tambah.php" class="btn btn-primary">+ Tambah Unit/Ranting</a>
+                <a href="ranting_import.php" class="btn btn-success">⬆️ Impor CSV</a>
+                <?php endif; ?>
+                <button onclick="window.print()" class="btn btn-print">🖨️ Cetak</button>
+            </div>
         </div>
         
+        <!-- Filter Cascade -->
         <div class="search-filter">
-            <form method="GET">
+            <form method="GET" action="">
+                <div class="filter-section-title">🔍 Pencarian & Filter</div>
                 <div class="filter-row">
                     <input type="text" name="search" placeholder="Cari nama atau alamat..." value="<?php echo htmlspecialchars($search); ?>">
                     
@@ -183,14 +258,49 @@ $is_readonly = $_SESSION['role'] == 'user';
                         <option value="unit" <?php echo $filter_jenis == 'unit' ? 'selected' : ''; ?>>Unit</option>
                     </select>
                 </div>
-                
+
+                <div class="filter-section-title">📋 Filter Struktur Organisasi (Cascade)</div>
                 <div class="filter-row">
-                    <button type="submit" class="btn btn-primary">🔍 Cari</button>
+                    <div>
+                        <select name="filter_pengprov" id="filter_pengprov" onchange="updatePengKotRanting()">
+                            <option value="">-- Semua Pengurus Provinsi --</option>
+                            <?php 
+                            $pengprov_result->data_seek(0);
+                            while ($row = $pengprov_result->fetch_assoc()): 
+                            ?>
+                                <option value="<?php echo $row['id']; ?>" <?php echo $filter_pengprov == $row['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($row['nama_pengurus']); ?>
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+
+                    <div>
+                        <select name="filter_pengkot" id="filter_pengkot" onchange="this.form.submit()" <?php echo $filter_pengprov == 0 ? 'disabled' : ''; ?>>
+                            <option value="">-- Semua Pengurus Kota --</option>
+                            <?php 
+                            if ($pengkot_result) {
+                                $pengkot_result->data_seek(0);
+                                while ($row = $pengkot_result->fetch_assoc()): 
+                                ?>
+                                    <option value="<?php echo $row['id']; ?>" <?php echo $filter_pengkot == $row['id'] ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($row['nama_pengurus']); ?>
+                                    </option>
+                                <?php endwhile;
+                            }
+                            ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="filter-row" style="margin-top: 15px;">
+                    <button type="submit" class="btn btn-primary">🔍 Filter</button>
                     <a href="ranting.php" class="btn" style="background: #6c757d; color: white;">Reset</a>
                 </div>
             </form>
         </div>
-        
+
+        <!-- Tabel Ranting -->
         <div class="table-container">
             <?php if ($total_ranting > 0): ?>
             <table>
@@ -209,35 +319,64 @@ $is_readonly = $_SESSION['role'] == 'user';
                     <?php while ($row = $result->fetch_assoc()): ?>
                     <tr>
                         <td><strong><?php echo htmlspecialchars($row['nama_ranting']); ?></strong></td>
-                        <td>
-                            <span class="badge badge-<?php echo $row['jenis']; ?>">
-                                <?php echo strtoupper($row['jenis']); ?>
-                            </span>
-                        </td>
+                        <td><span class="badge badge-<?php echo $row['jenis']; ?>"><?php echo strtoupper($row['jenis']); ?></span></td>
                         <td><?php echo htmlspecialchars($row['ketua_nama'] ?? '-'); ?></td>
-                        <td><?php echo htmlspecialchars(substr($row['alamat'] ?? '-', 0, 50)); ?></td>
+                        <td><?php echo htmlspecialchars(substr($row['alamat'] ?? '-', 0, 40)); ?></td>
                         <td><?php echo htmlspecialchars($row['no_kontak'] ?? '-'); ?></td>
                         <td><?php echo htmlspecialchars($row['nama_pengurus'] ?? '-'); ?></td>
                         <td>
-                            <a href="ranting_detail.php?id=<?php echo $row['id']; ?>" class="btn btn-info btn-small">Lihat</a>
-                            <?php if (!$is_readonly): ?>
-                            <a href="ranting_edit.php?id=<?php echo $row['id']; ?>" class="btn btn-warning btn-small">Edit</a>
-                            <a href="ranting_hapus.php?id=<?php echo $row['id']; ?>" class="btn btn-danger btn-small" onclick="return confirm('Yakin?')">Hapus</a>
-                            <?php endif; ?>
+                            <div class="action-icons">
+                                <a href="ranting_detail.php?id=<?php echo $row['id']; ?>" class="icon-btn icon-view" title="Lihat">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <?php if (!$is_readonly): ?>
+                                <a href="ranting_edit.php?id=<?php echo $row['id']; ?>" class="icon-btn icon-edit" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="ranting_hapus.php?id=<?php echo $row['id']; ?>" class="icon-btn icon-delete" title="Hapus" onclick="return confirm('Yakin hapus?')">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                                <?php endif; ?>
+                            </div>
                         </td>
                     </tr>
                     <?php endwhile; ?>
                 </tbody>
             </table>
             <?php else: ?>
-            <div class="no-data">📭 Tidak ada data unit/ranting</div>
+            <div class="no-data">🔍 Tidak ada data unit/ranting</div>
             <?php endif; ?>
         </div>
     </div>
+
     <script>
-    function printTable() {
-        window.print();
-    }
+        function updatePengKotRanting() {
+            const pengprovSelect = document.getElementById('filter_pengprov');
+            const pengkotSelect = document.getElementById('filter_pengkot');
+            
+            const pengprovId = pengprovSelect.value;
+            
+            if (pengprovId === '') {
+                pengkotSelect.disabled = true;
+                pengkotSelect.innerHTML = '<option value="">-- Semua Pengurus Kota --</option>';
+                return;
+            }
+            
+            pengkotSelect.disabled = false;
+            
+            fetch('../../api/get_pengkot.php?pengprov_id=' + pengprovId)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let html = '<option value="">-- Semua Pengurus Kota --</option>';
+                        data.data.forEach(pengkot => {
+                            html += '<option value="' + pengkot.id + '">' + pengkot.nama_pengurus + '</option>';
+                        });
+                        pengkotSelect.innerHTML = html;
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
     </script>
 </body>
 </html>

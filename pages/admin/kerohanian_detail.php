@@ -19,22 +19,21 @@ $permission_manager = new PermissionManager(
     $_SESSION['ranting_id'] ?? null
 );
 
-// Store untuk global use
 $GLOBALS['permission_manager'] = $permission_manager;
 
-// Check permission untuk action ini
 if (!$permission_manager->can('anggota_read')) {
-    die("❌ Akses ditolak!");
+    die("âŒ Akses ditolak!");
 }
 
 $id = (int)$_GET['id'];
 
 $sql = "SELECT k.*, a.nama_lengkap, a.no_anggota, a.tanggal_lahir, a.jenis_kelamin,
-               r.nama_ranting, t.nama_tingkat
+               r.nama_ranting, t.nama_tingkat, t_pembuka.nama_tingkat as tingkat_pembuka_nama
         FROM kerohanian k
         JOIN anggota a ON k.anggota_id = a.id
         LEFT JOIN ranting r ON k.ranting_id = r.id
         LEFT JOIN tingkatan t ON a.tingkat_id = t.id
+        LEFT JOIN tingkatan t_pembuka ON k.tingkat_pembuka_id = t_pembuka.id
         WHERE k.id = $id";
 
 $result = $conn->query($sql);
@@ -89,26 +88,37 @@ $age = $birthDate->diff($today)->y;
             border-bottom: 1px solid #eee;
         }
         
+        .info-row:last-child { border-bottom: none; }
+        
         .label { color: #666; font-weight: 600; }
         .value { color: #333; }
         
         .badge {
             display: inline-block;
             padding: 6px 12px;
-            background: #e3f2fd;
-            color: #1976d2;
             border-radius: 4px;
             font-size: 12px;
             font-weight: 600;
+            background: #e3f2fd;
+            color: #1976d2;
         }
         
-        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; font-weight: 600; }
+        .btn { 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            text-decoration: none; 
+            display: inline-block;
+            font-weight: 600;
+        }
+        
         .btn-warning { background: #ffc107; color: black; }
         .button-group { margin-top: 20px; }
     </style>
 </head>
 <body>
-    <?php renderNavbar('🙏 Detail Kerohanian'); ?>
+    <?php renderNavbar('ðŸ™ Detail Kerohanian'); ?>
 
     <div class="container">
         <div class="card">
@@ -138,7 +148,7 @@ $age = $birthDate->diff($today)->y;
                 <div class="label">Tingkat Saat Ini</div>
                 <div class="value"><span class="badge"><?php echo $kerohanian['nama_tingkat']; ?></span></div>
             </div>
-            
+
             <div class="info-row">
                 <div class="label">Tanggal Pembukaan</div>
                 <div class="value"><strong><?php echo date('d M Y', strtotime($kerohanian['tanggal_pembukaan'])); ?></strong></div>
@@ -153,6 +163,16 @@ $age = $birthDate->diff($today)->y;
                 <div class="label">Nama Pembuka</div>
                 <div class="value"><?php echo htmlspecialchars($kerohanian['pembuka_nama']); ?></div>
             </div>
+
+            <div class="info-row">
+                <div class="label">Penyelenggara</div>
+                <div class="value"><?php echo htmlspecialchars($kerohanian['penyelenggara']); ?></div>
+            </div>
+
+            <div class="info-row">
+                <div class="label">Tingkat Pembuka</div>
+                <div class="value"><span class="badge"><?php echo $kerohanian['tingkat_pembuka_nama']; ?></span></div>
+            </div>
             
             <div class="info-row">
                 <div class="label">Unit/Ranting</div>
@@ -162,9 +182,9 @@ $age = $birthDate->diff($today)->y;
             <?php if ($_SESSION['role'] == 'admin'): ?>
             <div class="button-group">
                 <button onclick="window.print()" class="btn btn-warning" style="background: #6c757d;">
-                    🖨️ Print Detail
+                    ðŸ–¨ï¸ Print Detail
                 </button>
-                <a href="kerohanian_edit.php?id=<?php echo $id; ?>" class="btn btn-warning">✏️ Edit</a>
+                <a href="kerohanian_edit.php?id=<?php echo $id; ?>" class="btn btn-warning">âœï¸ Edit</a>
             </div>
             <?php endif; ?>
         </div>

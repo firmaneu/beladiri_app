@@ -125,15 +125,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     if (!$error) {
         $sql = "UPDATE ranting SET 
-                nama_ranting = ?, jenis = ?, tanggal_sk_pembentukan = ?,
+                nama_ranting = ?, jenis = ?, tanggal_sk_pembentukan = ?, no_sk_pembentukan = ?,
                 alamat = ?, ketua_nama = ?, penanggung_jawab_teknik = ?,
                 no_kontak = ?, pengurus_kota_id = ?
                 WHERE id = ?";
-        
+
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ssssssiii", $nama_ranting, $jenis, $tanggal_sk,
-                         $alamat, $ketua_nama, $penanggung_jawab,
-                         $no_kontak, $pengurus_kota_id, $id);
+        $stmt->bind_param("ssssssssii", $nama_ranting, $jenis, $tanggal_sk, $no_sk_pembentukan,
+                        $alamat, $ketua_nama, $penanggung_jawab,
+                        $no_kontak, $pengurus_kota_id, $id);
         
         if ($stmt->execute()) {
             if (!$success) {
@@ -301,9 +301,17 @@ $pengurus_result = $conn->query("SELECT id, nama_pengurus FROM pengurus WHERE je
                     <div class="form-group">
                         <label>Tanggal SK Pembentukan <span class="required">*</span></label>
                         <input type="date" name="tanggal_sk" value="<?php echo $ranting['tanggal_sk_pembentukan']; ?>" required>
+                    </div>                            
+                
+                    <div class="form-group">
+                        <label>No SK Pembentukan</label>
+                        <input type="text" name="no_sk_pembentukan" 
+                            value="<?php echo htmlspecialchars($ranting['no_sk_pembentukan'] ?? ''); ?>"
+                            placeholder="Contoh: 001/SK/KOTA/2024">
+                        <div class="form-hint">Nomor Surat Keputusan pembentukan unit/ranting</div>
                     </div>
                 </div>
-                
+
                 <div class="form-row full">
                     <div class="form-group">
                         <label>Alamat <span class="required">*</span></label>

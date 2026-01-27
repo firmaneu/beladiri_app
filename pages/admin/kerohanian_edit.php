@@ -19,12 +19,10 @@ $permission_manager = new PermissionManager(
     $_SESSION['ranting_id'] ?? null
 );
 
-// Store untuk global use
 $GLOBALS['permission_manager'] = $permission_manager;
 
-// Check permission untuk action ini
 if (!$permission_manager->can('anggota_read')) {
-    die("❌ Akses ditolak!");
+    die("âŒ Akses ditolak!");
 }
 
 $id = (int)$_GET['id'];
@@ -42,12 +40,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $tanggal_pembukaan = $_POST['tanggal_pembukaan'];
     $lokasi = $conn->real_escape_string($_POST['lokasi']);
     $pembuka_nama = $conn->real_escape_string($_POST['pembuka_nama']);
+    $penyelenggara = $conn->real_escape_string($_POST['penyelenggara']);
+    $tingkat_pembuka_id = !empty($_POST['tingkat_pembuka_id']) ? (int)$_POST['tingkat_pembuka_id'] : NULL;
     $ranting_id = !empty($_POST['ranting_id']) ? (int)$_POST['ranting_id'] : NULL;
     
-    $sql = "UPDATE kerohanian SET tanggal_pembukaan = ?, lokasi = ?, pembuka_nama = ?, ranting_id = ? WHERE id = ?";
+    $sql = "UPDATE kerohanian SET tanggal_pembukaan = ?, lokasi = ?, pembuka_nama = ?, penyelenggara = ?, tingkat_pembuka_id = ?, ranting_id = ? WHERE id = ?";
     
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("sssii", $tanggal_pembukaan, $lokasi, $pembuka_nama, $ranting_id, $id);
+    $stmt->bind_param("sssssii", $tanggal_pembukaan, $lokasi, $pembuka_nama, $penyelenggara, $tingkat_pembuka_id, $ranting_id, $id);
     
     if ($stmt->execute()) {
         $success = "Data kerohanian berhasil diupdate!";
@@ -59,6 +59,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 // Ambil daftar ranting
 $ranting_result = $conn->query("SELECT id, nama_ranting FROM ranting ORDER BY nama_ranting");
+
+// Ambil daftar tingkat
+$tingkat_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER BY urutan");
 ?>
 
 <!DOCTYPE html>
@@ -103,6 +106,7 @@ $ranting_result = $conn->query("SELECT id, nama_ranting FROM ranting ORDER BY na
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 14px;
+            font-family: 'Segoe UI', sans-serif;
         }
         
         input:focus, select:focus {
@@ -114,7 +118,7 @@ $ranting_result = $conn->query("SELECT id, nama_ranting FROM ranting ORDER BY na
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 20px;
+            gap: 25px;
         }
         
         .required { color: #dc3545; }
@@ -146,18 +150,18 @@ $ranting_result = $conn->query("SELECT id, nama_ranting FROM ranting ORDER BY na
     </style>
 </head>
 <body>
-    <?php renderNavbar('✏️ Edit Kerohanian'); ?>
+    <?php renderNavbar('âœï¸ Edit Kerohanian'); ?>
     
     <div class="container">
         <div class="form-container">
             <h1>Edit Data Kerohanian</h1>
             
             <?php if ($error): ?>
-                <div class="alert alert-error">⚠️ <?php echo $error; ?></div>
+                <div class="alert alert-error">âš ï¸ <?php echo $error; ?></div>
             <?php endif; ?>
             
             <?php if ($success): ?>
-                <div class="alert alert-success">✓ <?php echo $success; ?></div>
+                <div class="alert alert-success">âœ" <?php echo $success; ?></div>
             <?php endif; ?>
             
             <form method="POST">
@@ -185,13 +189,32 @@ $ranting_result = $conn->query("SELECT id, nama_ranting FROM ranting ORDER BY na
                     <input type="text" name="lokasi" value="<?php echo htmlspecialchars($kerohanian['lokasi']); ?>" required>
                 </div>
                 
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nama Pembuka <span class="required">*</span></label>
+                        <input type="text" name="pembuka_nama" value="<?php echo htmlspecialchars($kerohanian['pembuka_nama']); ?>" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Penyelenggara <span class="required">*</span></label>
+                        <input type="text" name="penyelenggara" value="<?php echo htmlspecialchars($kerohanian['penyelenggara']); ?>" required>
+                    </div>
+                </div>
+
                 <div class="form-group">
-                    <label>Nama Pembuka<span class="required">*</span></label>
-                    <input type="text" name="pembuka_nama" value="<?php echo htmlspecialchars($kerohanian['pembuka_nama']); ?>" required>
+                    <label>Tingkat Pembuka <span class="required">*</span></label>
+                    <select name="tingkat_pembuka_id" required>
+                        <option value="">-- Pilih Tingkat --</option>
+                        <?php while ($row = $tingkat_result->fetch_assoc()): ?>
+                            <option value="<?php echo $row['id']; ?>" <?php echo $kerohanian['tingkat_pembuka_id'] == $row['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($row['nama_tingkat']); ?>
+                            </option>
+                        <?php endwhile; ?>
+                    </select>
                 </div>
                 
                 <div class="button-group">
-                    <button type="submit" class="btn btn-primary">💾 Simpan Perubahan</button>
+                    <button type="submit" class="btn btn-primary">ðŸ'¾ Simpan Perubahan</button>
                     <a href="kerohanian_detail.php?id=<?php echo $id; ?>" class="btn btn-secondary">Batal</a>
                 </div>
             </form>

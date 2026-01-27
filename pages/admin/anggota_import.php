@@ -173,11 +173,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file_excel'])) {
             <p class="description">Upload file CSV berisi data anggota baru.</p>
             
             <?php if ($error): ?>
-                <div class="alert alert-error"><?php echo $error; ?></div>
+                <div class="alert alert-error">⚠️ <?php echo $error; ?></div>
             <?php endif; ?>
             
             <?php if ($success): ?>
-                <div class="alert alert-success"><?php echo $success; ?></div>
+                <div class="alert alert-success">✅ <?php echo $success; ?></div>
             <?php endif; ?>
             
             <div class="template-info">

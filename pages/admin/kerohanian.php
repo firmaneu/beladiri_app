@@ -19,21 +19,20 @@ $permission_manager = new PermissionManager(
     $_SESSION['ranting_id'] ?? null
 );
 
-// Store untuk global use
 $GLOBALS['permission_manager'] = $permission_manager;
 
-// Check permission untuk action ini
 if (!$permission_manager->can('anggota_read')) {
-    die("❌ Akses ditolak!");
+    die("âŒ Akses ditolak!");
 }
 
 $search = isset($_GET['search']) ? $_GET['search'] : '';
 
-$sql = "SELECT k.*, a.nama_lengkap, a.no_anggota, a.tingkat_id, t.nama_tingkat, r.nama_ranting
+$sql = "SELECT k.*, a.nama_lengkap, a.no_anggota, a.tingkat_id, t.nama_tingkat, r.nama_ranting, t_pembuka.nama_tingkat as tingkat_pembuka_nama
         FROM kerohanian k
         JOIN anggota a ON k.anggota_id = a.id
         LEFT JOIN tingkatan t ON a.tingkat_id = t.id
         LEFT JOIN ranting r ON k.ranting_id = r.id
+        LEFT JOIN tingkatan t_pembuka ON k.tingkat_pembuka_id = t_pembuka.id
         WHERE 1=1";
 
 if ($search) {
@@ -55,19 +54,10 @@ function formatTanggal($date) {
 
 function singkatTingkat($nama_tingkat) {
     $singkat = [
-        'Dasar I' => 'DI',
-        'Dasar II' => 'DII',
-        'Calon Keluarga' => 'Cakel',
-        'Putih' => 'P',
-        'Putih Hijau' => 'PH',
-        'Hijau' => 'H',
-        'Hijau Biru' => 'HB',
-        'Biru' => 'B',
-        'Biru Merah' => 'BM',
-        'Merah' => 'M',
-        'Merah Kuning' => 'MK',
-        'Kuning' => 'K/PM',
-        'Pendekar' => 'PKE'
+        'Dasar I' => 'DI', 'Dasar II' => 'DII', 'Calon Keluarga' => 'Cakel',
+        'Putih' => 'P', 'Putih Hijau' => 'PH', 'Hijau' => 'H', 'Hijau Biru' => 'HB',
+        'Biru' => 'B', 'Biru Merah' => 'BM', 'Merah' => 'M', 'Merah Kuning' => 'MK',
+        'Kuning' => 'K/PM', 'Pendekar' => 'PKE'
     ];
     return isset($singkat[$nama_tingkat]) ? $singkat[$nama_tingkat] : $nama_tingkat;
 }
@@ -81,16 +71,8 @@ function singkatTingkat($nama_tingkat) {
     <title>Manajemen Kerohanian - Sistem Beladiri</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f5f5f5;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f5f5f5; }
         
         .navbar {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -101,11 +83,7 @@ function singkatTingkat($nama_tingkat) {
             align-items: center;
         }
         
-        .container {
-            max-width: 1200px;
-            margin: 20px auto;
-            padding: 0 20px;
-        }
+        .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
         
         .header {
             display: flex;
@@ -116,9 +94,7 @@ function singkatTingkat($nama_tingkat) {
             gap: 15px;
         }
         
-        .header h1 {
-            color: #333;
-        }
+        .header h1 { color: #333; }
         
         .header-right {
             display: flex;
@@ -140,35 +116,12 @@ function singkatTingkat($nama_tingkat) {
             white-space: nowrap;
         }
         
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-        }
-        
-        .btn-success {
-            background: #28a745;
-            color: white;
-        }
-        
-        .btn-success:hover {
-            background: #218838;
-            transform: translateY(-2px);
-        }
-
-        .btn-print {
-            background: #6c757d;
-            color: white;
-        }
-
-        .btn-print:hover {
-            background: #5a6268;
-            transform: translateY(-2px);
-        }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-print { background: #6c757d; color: white; }
+        .btn-print:hover { background: #5a6268; }
         
         .search-filter {
             background: white;
@@ -226,9 +179,7 @@ function singkatTingkat($nama_tingkat) {
             font-size: 13px;
         }
         
-        tr:hover {
-            background: #f9f9f9;
-        }
+        tr:hover { background: #f9f9f9; }
         
         .badge {
             display: inline-block;
@@ -261,29 +212,12 @@ function singkatTingkat($nama_tingkat) {
             color: white;
         }
         
-        .icon-view {
-            background: #3498db;
-        }
-        
-        .icon-view:hover {
-            background: #2980b9;
-        }
-        
-        .icon-edit {
-            background: #f39c12;
-        }
-        
-        .icon-edit:hover {
-            background: #d68910;
-        }
-        
-        .icon-delete {
-            background: #e74c3c;
-        }
-        
-        .icon-delete:hover {
-            background: #c0392b;
-        }
+        .icon-view { background: #3498db; }
+        .icon-view:hover { background: #2980b9; }
+        .icon-edit { background: #f39c12; }
+        .icon-edit:hover { background: #d68910; }
+        .icon-delete { background: #e74c3c; }
+        .icon-delete:hover { background: #c0392b; }
         
         .no-data {
             text-align: center;
@@ -293,7 +227,7 @@ function singkatTingkat($nama_tingkat) {
     </style>
 </head>
 <body>
-    <?php renderNavbar('🙏 Manajemen Kerohanian'); ?>
+    <?php renderNavbar('ðŸ™ Manajemen Kerohanian'); ?>
     
     <div class="container">
         <div class="header">
@@ -302,17 +236,17 @@ function singkatTingkat($nama_tingkat) {
                 <p style="color: #666; margin-top: 5px;">Total: <strong><?php echo $total_kerohanian; ?> pembukaan</strong></p>
             </div>
             <div class="header-right">
-                <button onclick="window.print()" class="btn btn-print" title="Cetak Daftar">
-                    🖨️ Print
-                </button>
-                <a href="kerohanian_import.php" class="btn btn-success" title="Import dari CSV">
-                    📥 Import CSV
-                </a>
                 <?php if (!$is_readonly): ?>
                 <a href="kerohanian_tambah.php" class="btn btn-primary" title="Tambah Kerohanian Baru">
-                    ➕ Tambah
+                    + Tambah
                 </a>
                 <?php endif; ?>
+                <a href="kerohanian_import.php" class="btn btn-success" title="Import dari CSV">
+                    ⬆️ Import CSV
+                </a>
+                <button onclick="window.print()" class="btn btn-print" title="Cetak Daftar">
+                    🖨️ Cetak
+                </button>
             </div>
         </div>
         
@@ -332,9 +266,11 @@ function singkatTingkat($nama_tingkat) {
                         <th>No Anggota</th>
                         <th>Nama Anggota</th>
                         <th>Tingkat</th>
-                        <th>Tanggal Pembukaan</th>
-                        <th>Lokasi</th>
+                        <th>Tanggal Pembukaan</th>                        
                         <th>Penyelenggara</th>
+                        <th>Lokasi</th>
+                        <th>Pembuka</th>
+                        <th>Tingkat Pembuka</th>
                         <th>Unit/Ranting</th>
                         <th>Aksi</th>
                     </tr>
@@ -344,14 +280,12 @@ function singkatTingkat($nama_tingkat) {
                     <tr>
                         <td><?php echo $row['no_anggota']; ?></td>
                         <td><?php echo htmlspecialchars($row['nama_lengkap']); ?></td>
-                        <td>
-                            <span class="badge">
-                                <?php echo singkatTingkat($row['nama_tingkat'] ?? '-'); ?>
-                            </span>
-                        </td>
+                        <td><span class="badge"><?php echo singkatTingkat($row['nama_tingkat'] ?? '-'); ?></span></td>
                         <td><?php echo formatTanggal($row['tanggal_pembukaan']); ?></td>
+                        <td><?php echo htmlspecialchars($row['penyelenggara'] ?? '-'); ?></td>
                         <td><?php echo htmlspecialchars($row['lokasi'] ?? '-'); ?></td>
                         <td><?php echo htmlspecialchars($row['pembuka_nama'] ?? '-'); ?></td>
+                        <td><span class="badge"><?php echo singkatTingkat($row['tingkat_pembuka_nama'] ?? '-'); ?></span></td>
                         <td><?php echo htmlspecialchars($row['nama_ranting'] ?? '-'); ?></td>
                         <td>
                             <div class="action-icons">
@@ -374,7 +308,7 @@ function singkatTingkat($nama_tingkat) {
             </table>
             <?php else: ?>
             <div class="no-data">
-                <p>🔍 Tidak ada data kerohanian</p>
+                <p>ðŸ" Tidak ada data kerohanian</p>
             </div>
             <?php endif; ?>
         </div>

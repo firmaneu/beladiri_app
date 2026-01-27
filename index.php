@@ -54,6 +54,7 @@ $total_kerohanian = $conn->query("SELECT COUNT(*) as count FROM kerohanian")->fe
         
         .navbar h1 {
             font-size: 24px;
+            color: white;
             margin: 0;
         }
         
@@ -252,7 +253,7 @@ $total_kerohanian = $conn->query("SELECT COUNT(*) as count FROM kerohanian")->fe
 <body>
     <!-- Navbar Sederhana -->
     <div class="navbar">
-        <h1>🥋 Sistem Manajemen Lembaga Beladiri</h1>
+        <h1>🥋 Sistem Informasi & Manajemen Perisai Diri</h1>
         <div class="navbar-right">
             <div class="user-info">
                 <span><?php echo htmlspecialchars($_SESSION['nama'] ?? 'User'); ?></span>
