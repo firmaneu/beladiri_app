@@ -37,7 +37,7 @@ def merge_php_to_markdown(output_filename="SIM_PD_.md"):
     root_dir = os.getcwd()
     base_name = os.path.basename(root_dir) or "beladiri_app"
     
-    with open(output_filename, "w", encoding="utf-8") as outfile:
+    with open(output_filename, "w", encoding="utf-8") as outfile: 
         # 1. Header & Tree
         outfile.write(f"# Dokumentasi Proyek: {base_name}\n\n")
         outfile.write("## Struktur Folder\n")

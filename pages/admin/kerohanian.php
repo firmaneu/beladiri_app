@@ -22,10 +22,59 @@ $permission_manager = new PermissionManager(
 $GLOBALS['permission_manager'] = $permission_manager;
 
 if (!$permission_manager->can('anggota_read')) {
-    die("âŒ Akses ditolak!");
+    die("❌ Akses ditolak!");
 }
 
-$search = isset($_GET['search']) ? $_GET['search'] : '';
+// Handle AJAX request untuk filter
+if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
+    header('Content-Type: application/json');
+    
+    $anggota = isset($_GET['anggota']) ? $conn->real_escape_string(trim($_GET['anggota'])) : '';
+    $penyelenggara = isset($_GET['penyelenggara']) ? $conn->real_escape_string(trim($_GET['penyelenggara'])) : '';
+    $pembuka = isset($_GET['pembuka']) ? $conn->real_escape_string(trim($_GET['pembuka'])) : '';
+    
+    $sql = "SELECT k.id, k.tanggal_pembukaan, k.lokasi, k.pembuka_nama, k.penyelenggara,
+                   a.nama_lengkap, a.no_anggota, t.nama_tingkat, t_pembuka.nama_tingkat as tingkat_pembuka_nama
+            FROM kerohanian k
+            JOIN anggota a ON k.anggota_id = a.id
+            LEFT JOIN tingkatan t ON a.tingkat_id = t.id
+            LEFT JOIN tingkatan t_pembuka ON k.tingkat_pembuka_id = t_pembuka.id
+            WHERE 1=1";
+    
+    if ($anggota) {
+        $sql .= " AND a.nama_lengkap LIKE '%$anggota%'";
+    }
+    
+    if ($penyelenggara) {
+        $sql .= " AND k.penyelenggara LIKE '%$penyelenggara%'";
+    }
+    
+    if ($pembuka) {
+        $sql .= " AND k.pembuka_nama LIKE '%$pembuka%'";
+    }
+    
+    $sql .= " ORDER BY k.tanggal_pembukaan DESC";
+    
+    $result = $conn->query($sql);
+    $rows = [];
+    
+    while ($row = $result->fetch_assoc()) {
+        $rows[] = [
+            'id' => (int)$row['id'],
+            'tanggal' => date('d-m-Y', strtotime($row['tanggal_pembukaan'])),
+            'no_anggota' => htmlspecialchars($row['no_anggota']),
+            'nama_anggota' => htmlspecialchars($row['nama_lengkap']),
+            'tingkat' => htmlspecialchars($row['nama_tingkat'] ?? '-'),
+            'lokasi' => htmlspecialchars($row['lokasi'] ?? '-'),
+            'penyelenggara' => htmlspecialchars($row['penyelenggara'] ?? '-'),
+            'pembuka_nama' => htmlspecialchars($row['pembuka_nama'] ?? '-'),
+            'tingkat_pembuka' => htmlspecialchars($row['tingkat_pembuka_nama'] ?? '-')
+        ];
+    }
+    
+    echo json_encode(['success' => true, 'data' => $rows]);
+    exit();
+}
 
 $sql = "SELECT k.*, a.nama_lengkap, a.no_anggota, a.tingkat_id, t.nama_tingkat, r.nama_ranting, t_pembuka.nama_tingkat as tingkat_pembuka_nama
         FROM kerohanian k
@@ -33,14 +82,7 @@ $sql = "SELECT k.*, a.nama_lengkap, a.no_anggota, a.tingkat_id, t.nama_tingkat, 
         LEFT JOIN tingkatan t ON a.tingkat_id = t.id
         LEFT JOIN ranting r ON k.ranting_id = r.id
         LEFT JOIN tingkatan t_pembuka ON k.tingkat_pembuka_id = t_pembuka.id
-        WHERE 1=1";
-
-if ($search) {
-    $search = $conn->real_escape_string($search);
-    $sql .= " AND (a.nama_lengkap LIKE '%$search%' OR a.no_anggota LIKE '%$search%')";
-}
-
-$sql .= " ORDER BY k.tanggal_pembukaan DESC";
+        ORDER BY k.tanggal_pembukaan DESC";
 
 $result = $conn->query($sql);
 $total_kerohanian = $result->num_rows;
@@ -118,36 +160,57 @@ function singkatTingkat($nama_tingkat) {
         
         .btn-primary { background: #667eea; color: white; }
         .btn-primary:hover { background: #5568d3; }
-        .btn-success { background: #28a745; color: white; }
-        .btn-success:hover { background: #218838; }
-        .btn-print { background: #6c757d; color: white; }
-        .btn-print:hover { background: #5a6268; }
         
-        .search-filter {
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #5a6268; }
+        
+        .filter-container {
             background: white;
-            padding: 15px;
+            padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            align-items: center;
         }
         
-        .search-filter input {
-            flex: 1;
-            min-width: 200px;
+        .filter-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .filter-group label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+            font-size: 13px;
+        }
+        
+        .filter-group input,
+        .filter-group select {
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 5px;
-            font-size: 14px;
+            font-size: 13px;
+            font-family: 'Segoe UI', sans-serif;
         }
         
-        .search-filter input:focus {
+        .filter-group input:focus,
+        .filter-group select:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
         }
         
         .table-container {
@@ -227,46 +290,57 @@ function singkatTingkat($nama_tingkat) {
     </style>
 </head>
 <body>
-    <?php renderNavbar('ðŸ™ Manajemen Kerohanian'); ?>
+    <?php renderNavbar('🙏 Manajemen Kerohanian'); ?>
     
     <div class="container">
         <div class="header">
             <div>
-                <h1>Daftar Kerohanian</h1>
-                <p style="color: #666; margin-top: 5px;">Total: <strong><?php echo $total_kerohanian; ?> pembukaan</strong></p>
+                <h1>Daftar Pembukaan Kerohanian</h1>
+                <p style="color: #666;">Total: <strong id="total-count"><?php echo $total_kerohanian; ?></strong> data</p>
             </div>
+            <?php if (!$is_readonly): ?>
             <div class="header-right">
-                <?php if (!$is_readonly): ?>
-                <a href="kerohanian_tambah.php" class="btn btn-primary" title="Tambah Kerohanian Baru">
-                    + Tambah
-                </a>
-                <?php endif; ?>
-                <a href="kerohanian_import.php" class="btn btn-success" title="Import dari CSV">
-                    ⬆️ Import CSV
-                </a>
-                <button onclick="window.print()" class="btn btn-print" title="Cetak Daftar">
-                    🖨️ Cetak
-                </button>
+                <a href="kerohanian_tambah.php" class="btn btn-primary">+ Tambah Kerohanian</a>
+            </div>
+            <?php endif; ?>
+        </div>
+        
+        <!-- Filter Section -->
+        <div class="filter-container">
+            <h3 style="margin-bottom: 15px; color: #333;">🔍 Filter Data</h3>
+            
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Nama Anggota</label>
+                    <input type="text" id="filter-anggota" placeholder="Cari nama anggota...">
+                </div>
+                
+                <div class="filter-group">
+                    <label>Penyelenggara</label>
+                    <input type="text" id="filter-penyelenggara" placeholder="Cari penyelenggara...">
+                </div>
+                
+                <div class="filter-group">
+                    <label>Nama Pembuka</label>
+                    <input type="text" id="filter-pembuka" placeholder="Cari pembuka...">
+                </div>
+            </div>
+            
+            <div class="filter-buttons">
+                <button class="btn btn-primary" style="padding: 8px 16px; font-size: 12px;" onclick="applyFilters()">🔎 Terapkan Filter</button>
+                <button class="btn btn-secondary" style="padding: 8px 16px; font-size: 12px;" onclick="resetFilters()">🔄 Reset Filter</button>
             </div>
         </div>
         
-        <div class="search-filter">
-            <form method="GET" style="display: flex; gap: 10px; flex: 1; flex-wrap: wrap; align-items: center;">
-                <input type="text" name="search" placeholder="Cari nama atau no anggota..." value="<?php echo htmlspecialchars($search); ?>">
-                <button type="submit" class="btn btn-primary">🔍 Cari</button>
-                <a href="kerohanian.php" class="btn" style="background: #6c757d; color: white;">Reset</a>
-            </form>
-        </div>
-        
+        <!-- Table Section -->
         <div class="table-container">
-            <?php if ($total_kerohanian > 0): ?>
-            <table>
+            <table id="kerohanian-table">
                 <thead>
                     <tr>
-                        <th>No Anggota</th>
+                        <th>No. Anggota</th>
                         <th>Nama Anggota</th>
                         <th>Tingkat</th>
-                        <th>Tanggal Pembukaan</th>                        
+                        <th>Tgl Pembukaan</th>
                         <th>Penyelenggara</th>
                         <th>Lokasi</th>
                         <th>Pembuka</th>
@@ -275,7 +349,7 @@ function singkatTingkat($nama_tingkat) {
                         <th>Aksi</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="kerohanian-tbody">
                     <?php while ($row = $result->fetch_assoc()): ?>
                     <tr>
                         <td><?php echo $row['no_anggota']; ?></td>
@@ -306,12 +380,85 @@ function singkatTingkat($nama_tingkat) {
                     <?php endwhile; ?>
                 </tbody>
             </table>
-            <?php else: ?>
-            <div class="no-data">
-                <p>ðŸ" Tidak ada data kerohanian</p>
-            </div>
-            <?php endif; ?>
+            <div class="no-data" id="no-data" style="display: none;">🔭 Tidak ada data kerohanian</div>
         </div>
     </div>
+    
+    <script>
+        function applyFilters() {
+            const anggota = document.getElementById('filter-anggota').value;
+            const penyelenggara = document.getElementById('filter-penyelenggara').value;
+            const pembuka = document.getElementById('filter-pembuka').value;
+            
+            let url = '?ajax=1';
+            if (anggota) url += `&anggota=${encodeURIComponent(anggota)}`;
+            if (penyelenggara) url += `&penyelenggara=${encodeURIComponent(penyelenggara)}`;
+            if (pembuka) url += `&pembuka=${encodeURIComponent(pembuka)}`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateTable(data.data);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+        
+        function updateTable(data) {
+            const tbody = document.getElementById('kerohanian-tbody');
+            const noData = document.getElementById('no-data');
+            const totalCount = document.getElementById('total-count');
+            
+            if (data.length === 0) {
+                tbody.innerHTML = '';
+                noData.style.display = 'block';
+                totalCount.textContent = '0';
+                return;
+            }
+            
+            noData.style.display = 'none';
+            totalCount.textContent = data.length;
+            
+            let html = '';
+            data.forEach(row => {
+                html += `
+                    <tr>
+                        <td>${row.no_anggota}</td>
+                        <td>${row.nama_anggota}</td>
+                        <td><span class="badge">${row.tingkat}</span></td>
+                        <td>${row.tanggal}</td>
+                        <td>${row.penyelenggara}</td>
+                        <td>${row.lokasi}</td>
+                        <td>${row.pembuka_nama}</td>
+                        <td><span class="badge">${row.tingkat_pembuka}</span></td>
+                        <td>-</td>
+                        <td>
+                            <div class="action-icons">
+                                <a href="kerohanian_detail.php?id=${row.id}" class="icon-btn icon-view" title="Lihat">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="kerohanian_edit.php?id=${row.id}" class="icon-btn icon-edit" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="kerohanian_hapus.php?id=${row.id}" class="icon-btn icon-delete" title="Hapus" onclick="return confirm('Yakin hapus data ini?')">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+        }
+        
+        function resetFilters() {
+            document.getElementById('filter-anggota').value = '';
+            document.getElementById('filter-penyelenggara').value = '';
+            document.getElementById('filter-pembuka').value = '';
+            location.reload();
+        }
+    </script>
 </body>
 </html>

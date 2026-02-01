@@ -51,6 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $ranting_saat_ini_id = !empty($_POST['ranting_saat_ini_id']) ? (int)$_POST['ranting_saat_ini_id'] : NULL;
     $tingkat_id = !empty($_POST['tingkat_id']) ? (int)$_POST['tingkat_id'] : NULL;
     $jenis_anggota = $_POST['jenis_anggota'];
+    $tahun_bergabung = !empty($_POST['tahun_bergabung']) ? (int)$_POST['tahun_bergabung'] : NULL;
+    $no_handphone = $conn->real_escape_string($_POST['no_handphone'] ?? '');
+    $ukt_terakhir = $_POST['ukt_terakhir'] ?? '';
     
     // Handle foto upload - SIMPAN KE FOLDER DENGAN FORMAT NoAnggota_Nama.ext
     $foto_path = NULL;
@@ -94,14 +97,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $sql = "INSERT INTO anggota (
                 no_anggota, nama_lengkap, tempat_lahir, tanggal_lahir, jenis_kelamin,
                 ranting_awal_id, ranting_saat_ini_id, tingkat_id, jenis_anggota,
-                nama_foto
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                tahun_bergabung, no_handphone, ukt_terakhir, nama_foto
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
             $stmt = $conn->prepare($sql);
             
             if ($stmt) {
-                // Total 10 parameter: string(6) + integer(3) + string(1)
-                $stmt->bind_param("sssssiiiis", 
+                // Total 13 parameter
+                $stmt->bind_param("sssssiiiisiss", 
                     $no_anggota,           // s
                     $nama_lengkap,         // s
                     $tempat_lahir,         // s
@@ -111,10 +114,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $ranting_saat_ini_id,  // i
                     $tingkat_id,           // i
                     $jenis_anggota,        // s
+                    $tahun_bergabung,      // i [BARU]
+                    $no_handphone,         // s [BARU]
+                    $ukt_terakhir,         // s [LAMA]
                     $foto_path             // s
                 );
                 
                 if ($stmt->execute()) {
+                    $anggota_id = $stmt->insert_id;
+                    
+                    // Insert prestasi jika ada [BARU]
+                    if (!empty($_POST['event_name'][0])) {
+                        for ($i = 0; $i < count($_POST['event_name']); $i++) {
+                            if (!empty($_POST['event_name'][$i])) {
+                                $event = $conn->real_escape_string($_POST['event_name'][$i]);
+                                $tgl = $_POST['tanggal_pelaksanaan'][$i] ?? NULL;
+                                $penyelenggara = $conn->real_escape_string($_POST['penyelenggara'][$i] ?? '');
+                                $kategori = $conn->real_escape_string($_POST['kategori'][$i] ?? '');
+                                $prestasi = $conn->real_escape_string($_POST['prestasi'][$i] ?? '');
+                                
+                                $prestasi_sql = "INSERT INTO prestasi (anggota_id, event_name, tanggal_pelaksanaan, penyelenggara, kategori, prestasi) 
+                                        VALUES ($anggota_id, '$event', '$tgl', '$penyelenggara', '$kategori', '$prestasi')";
+                                $conn->query($prestasi_sql);
+                            }
+                        }
+                    }
+                    
                     $success = "Anggota berhasil ditambahkan!";
                     header("refresh:2;url=anggota.php");
                 } else {
@@ -204,6 +229,8 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
         input[type="text"],
         input[type="date"],
         input[type="file"],
+        input[type="number"],
+        input[type="tel"],
         select {
             width: 100%;
             padding: 11px 14px;
@@ -340,6 +367,30 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
             background: #5a6268;
         }
         
+        .btn-add-prestasi {
+            background: #28a745;
+            color: white;
+            padding: 8px 16px;
+            font-size: 12px;
+            margin-top: 15px;
+        }
+        
+        .btn-add-prestasi:hover {
+            background: #218838;
+        }
+        
+        .btn-remove-prestasi {
+            background: #dc3545;
+            color: white;
+            padding: 8px 16px;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        
+        .btn-remove-prestasi:hover {
+            background: #c82333;
+        }
+        
         .button-group {
             display: flex;
             gap: 15px;
@@ -365,6 +416,30 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
             background: #f0fdf4;
             color: #060;
             border-left-color: #28a745;
+        }
+        
+        /* Prestasi Section Styling [BARU] */
+        .prestasi-container {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .prestasi-item {
+            background: white;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+        
+        .prestasi-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .prestasi-item.template {
+            display: none;
         }
     </style>
 </head>
@@ -422,7 +497,15 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
                             <option value="P">Perempuan</option>
                         </select>
                     </div>
-                    
+
+                    <div class="form-group">
+                        <label>No. Handphone</label>
+                        <input type="tel" name="no_handphone" placeholder="Contoh: 08xxxxxxxxxx">
+                        <div class="form-hint">Nomor telepon yang dapat dihubungi</div>
+                    </div>
+                </div>
+                 
+                <div class="form-row">
                     <div class="form-group">
                         <label>Foto Profil</label>
                         <input type="file" name="foto" accept="image/*">
@@ -508,21 +591,70 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
                         </select>
                         <div class="form-hint">Tentukan status anggota</div>
                     </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>UKT Terakhir</label>
-                    <input type="text" name="ukt_terakhir" 
-                        value="<?php echo isset($anggota) && !empty($anggota['ukt_terakhir']) ? date('d/m/Y', strtotime($anggota['ukt_terakhir'])) : ''; ?>"
-                        placeholder="Format: dd/mm/yyyy atau yyyy">
-                    <div class="form-hint">
-                        ℹ️ Format: 
-                        <br>• Tanggal lengkap: 15/07/2024 atau 2024-07-15
-                        <br>• Tahun saja: 2024 (otomatis dikonversi ke 02/07/2024)
-                        <br>• Kosongkan jika UKT belum pernah dilakukan
+                    
+                    <div class="form-group">
+                        <label>Tahun Bergabung</label>
+                        <input type="number" name="tahun_bergabung" min="1900" max="2100" placeholder="Contoh: 2024">
+                        <div class="form-hint">Tahun anggota bergabung</div>
                     </div>
                 </div>
-
+                
+                <div class="form-row">                                   
+                    <div class="form-group">
+                        <label>UKT Terakhir</label>
+                        <input type="text" name="ukt_terakhir" placeholder="Format: dd/mm/yyyy atau yyyy">
+                        <div class="form-hint">Format: 15/07/2024 atau 2024</div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- Bagian 3: Prestasi yang Diraih [BARU] -->
+                <h3>🏆 Prestasi yang Diraih (Opsional)</h3>
+                
+                <p class="form-hint" style="margin-bottom: 20px;">Tambahkan prestasi yang pernah diraih anggota ini. Anda dapat menambahkan lebih dari satu prestasi.</p>
+                
+                <div class="prestasi-container">
+                    <div id="prestasiList"></div>
+                    <button type="button" class="btn btn-add-prestasi" onclick="addPrestasi()">+ Tambah Prestasi</button>
+                </div>
+                
+                <!-- Template Prestasi [HIDDEN] -->
+                <div class="prestasi-item template" id="prestasiTemplate">
+                    <div class="form-row full">
+                        <div class="form-group">
+                            <label>Nama Event</label>
+                            <input type="text" name="event_name[]" placeholder="Contoh: Kejuaraan Nasional">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Tanggal Pelaksanaan</label>
+                            <input type="date" name="tanggal_pelaksanaan[]">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Penyelenggara</label>
+                            <input type="text" name="penyelenggara[]" placeholder="Contoh: KONI, Pengprov, dll">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Kategori yang Diikuti</label>
+                            <input type="text" name="kategori[]" placeholder="Contoh: Putra -60kg">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Prestasi</label>
+                            <input type="text" name="prestasi[]" placeholder="Contoh: Juara 1, Juara 2, dll">
+                        </div>
+                    </div>
+                    
+                    <button type="button" class="btn btn-remove-prestasi" onclick="removePrestasi(this)">🗑️ Hapus Prestasi</button>
+                </div>
+                
                 <div class="button-group">
                     <button type="submit" class="btn btn-primary">💾 Simpan Data Anggota</button>
                     <a href="anggota.php" class="btn btn-secondary">Batal</a>
@@ -548,48 +680,60 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
             }
         }
         
-        document.addEventListener('DOMContentLoaded', function() {
-        const uktInput = document.querySelector('input[name="ukt_terakhir"]');
-        
-        if (uktInput) {
-            uktInput.addEventListener('blur', function() {
-                if (this.value.trim() === '') return; // Skip jika kosong
-                
-                const input = this.value.trim();
-                let parsedDate = null;
-                
-                // Format dd/mm/yyyy
-                if (/^\d{2}\/\d{2}\/\d{4}$/.test(input)) {
-                    const parts = input.split('/');
-                    const day = parseInt(parts[0], 10);
-                    const month = parseInt(parts[1], 10);
-                    const year = parseInt(parts[2], 10);
-                    
-                    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-                        parsedDate = input;
-                    }
-                }
-                // Format yyyy (tahun saja)
-                else if (/^\d{4}$/.test(input)) {
-                    const year = input;
-                    parsedDate = '02/' + '07/' + year;
-                    this.value = parsedDate;
-                }
-                // Format yyyy-mm-dd
-                else if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
-                    const date = new Date(input);
-                    parsedDate = String(date.getDate()).padStart(2, '0') + '/' + 
-                                String(date.getMonth() + 1).padStart(2, '0') + '/' + 
-                                date.getFullYear();
-                    this.value = parsedDate;
-                }
-                else {
-                    this.value = '';
-                    alert('Format tidak valid! Gunakan: dd/mm/yyyy atau yyyy');
-                }
-            });
+        // Fungsi untuk tambah prestasi [BARU]
+        function addPrestasi() {
+            const template = document.getElementById('prestasiTemplate').cloneNode(true);
+            template.classList.remove('template');
+            document.getElementById('prestasiList').appendChild(template);
         }
-    });
+        
+        // Fungsi untuk hapus prestasi [BARU]
+        function removePrestasi(btn) {
+            btn.parentElement.remove();
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const uktInputs = document.querySelectorAll('input[name="ukt_terakhir"]');
+            
+            uktInputs.forEach(uktInput => {
+                uktInput.addEventListener('blur', function() {
+                    if (this.value.trim() === '') return;
+                    
+                    const input = this.value.trim();
+                    let parsedDate = null;
+                    
+                    // Format dd/mm/yyyy
+                    if (/^\d{2}\/\d{2}\/\d{4}$/.test(input)) {
+                        const parts = input.split('/');
+                        const day = parseInt(parts[0], 10);
+                        const month = parseInt(parts[1], 10);
+                        const year = parseInt(parts[2], 10);
+                        
+                        if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                            parsedDate = input;
+                        }
+                    }
+                    // Format yyyy (tahun saja)
+                    else if (/^\d{4}$/.test(input)) {
+                        const year = input;
+                        parsedDate = '02/' + '07/' + year;
+                        this.value = parsedDate;
+                    }
+                    // Format yyyy-mm-dd
+                    else if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
+                        const date = new Date(input);
+                        parsedDate = String(date.getDate()).padStart(2, '0') + '/' + 
+                                    String(date.getMonth() + 1).padStart(2, '0') + '/' + 
+                                    date.getFullYear();
+                        this.value = parsedDate;
+                    }
+                    else {
+                        this.value = '';
+                        alert('Format tidak valid! Gunakan: dd/mm/yyyy atau yyyy');
+                    }
+                });
+            });
+        });
     </script>
 </body>
 </html>

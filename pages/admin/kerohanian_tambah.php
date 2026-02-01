@@ -98,7 +98,7 @@ $tingkat_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER BY 
             justify-content: space-between;
         }
         
-        .container { max-width: 800px; margin: 20px auto; padding: 0 20px; }
+        .container { max-width: 900px; margin: 20px auto; padding: 0 20px; }
         .form-container {
             background: white;
             padding: 35px;
@@ -170,18 +170,18 @@ $tingkat_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER BY 
     </style>
 </head>
 <body>
-    <?php renderNavbar('âž• Tambah Kerohanian'); ?>
+    <?php renderNavbar('➕ Tambah Kerohanian'); ?>
 
     <div class="container">
         <div class="form-container">
-            <h1>Formulir Pencatatan Pembukaan Kerohanian</h1>
+            <h1>📋 Formulir Pencatatan Pembukaan Kerohanian</h1>
             
             <?php if ($error): ?>
-                <div class="alert alert-error">âš ï¸ <?php echo $error; ?></div>
+                <div class="alert alert-error">⚠️ <?php echo $error; ?></div>
             <?php endif; ?>
             
             <?php if ($success): ?>
-                <div class="alert alert-success">âœ" <?php echo $success; ?></div>
+                <div class="alert alert-success">✓ <?php echo $success; ?></div>
             <?php endif; ?>
             
             <form method="POST">
@@ -251,7 +251,7 @@ $tingkat_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER BY 
                 </div>
                 
                 <div class="button-group">
-                    <button type="submit" class="btn btn-primary">ðŸ'¾ Simpan</button>
+                    <button type="submit" class="btn btn-primary">💾 Simpan</button>
                     <a href="kerohanian.php" class="btn btn-secondary">Batal</a>
                 </div>
             </form>

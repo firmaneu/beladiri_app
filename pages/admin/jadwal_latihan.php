@@ -37,14 +37,15 @@ $success = '';
 // Proses tambah/edit jadwal
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $action = $_POST['action'] ?? 'add';
-    $hari = $_POST['hari'];
-    $jam_mulai = $_POST['jam_mulai'];
-    $jam_selesai = $_POST['jam_selesai'];
     
-    if (empty($ranting_id)) {
-        $error = "Pilih unit/ranting terlebih dahulu!";
-    } else {
-        if ($action == 'add') {
+    if ($action == 'add') {
+        $hari = $_POST['hari'] ?? '';
+        $jam_mulai = $_POST['jam_mulai'] ?? '';
+        $jam_selesai = $_POST['jam_selesai'] ?? '';
+        
+        if (empty($ranting_id)) {
+            $error = "Pilih unit/ranting terlebih dahulu!";
+        } else {
             $sql = "INSERT INTO jadwal_latihan (ranting_id, hari, jam_mulai, jam_selesai) VALUES (?, ?, ?, ?)";
             $stmt = $conn->prepare($sql);
             $stmt->bind_param("isss", $ranting_id, $hari, $jam_mulai, $jam_selesai);
@@ -54,11 +55,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             } else {
                 $error = "Error: " . $stmt->error;
             }
-        } elseif ($action == 'delete') {
-            $jadwal_id = (int)$_POST['jadwal_id'];
-            $conn->query("DELETE FROM jadwal_latihan WHERE id = $jadwal_id");
-            $success = "Jadwal latihan berhasil dihapus!";
         }
+    } elseif ($action == 'delete') {
+        $jadwal_id = (int)$_POST['jadwal_id'];
+        $conn->query("DELETE FROM jadwal_latihan WHERE id = $jadwal_id");
+        $success = "Jadwal latihan berhasil dihapus!";
     }
 }
 

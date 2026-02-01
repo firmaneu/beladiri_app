@@ -33,10 +33,11 @@ $success = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $tanggal_pelaksanaan = $_POST['tanggal_pelaksanaan'];
     $lokasi = $conn->real_escape_string($_POST['lokasi']);
+    $penyelenggara_id = !empty($_POST['penyelenggara_id']) ? (int)$_POST['penyelenggara_id'] : null;
     
-    $sql = "INSERT INTO ukt (tanggal_pelaksanaan, lokasi) VALUES (?, ?)";
+    $sql = "INSERT INTO ukt (tanggal_pelaksanaan, lokasi, penyelenggara_id) VALUES (?, ?, ?)";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ss", $tanggal_pelaksanaan, $lokasi);
+    $stmt->bind_param("ssi", $tanggal_pelaksanaan, $lokasi, $penyelenggara_id);
     
     if ($stmt->execute()) {
         $ukt_id = $stmt->insert_id;
@@ -64,9 +65,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             padding: 15px 30px;
             display: flex;
             justify-content: space-between;
+            align-items: center;
         }
         
-        .container { max-width: 700px; margin: 20px auto; padding: 0 20px; }
+        .container { max-width: 900px; margin: 20px auto; padding: 0 20px; }
+
         .form-container {
             background: white;
             padding: 35px;
@@ -75,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         
         h1 { color: #333; margin-bottom: 10px; }
+        
         .form-group { margin-bottom: 25px; }
         
         label {
@@ -82,24 +86,50 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             margin-bottom: 8px;
             color: #333;
             font-weight: 600;
+            font-size: 13px;
+        }        
+        
+        h3 {
+            color: #333;
+            margin: 30px 0 20px 0;
+            font-size: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #667eea;
         }
         
-        input[type="date"], input[type="text"] {
+        h3:first-child {
+            margin-top: 0;
+        }
+        
+        input[type="date"], input[type="text"], select {
             width: 100%;
             padding: 11px 14px;
             border: 1px solid #ddd;
             border-radius: 6px;
             font-size: 14px;
+            font-family: 'Segoe UI', sans-serif;
         }
         
-        input:focus {
+        input:focus, select:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
         
         .required { color: #dc3545; }
-        .form-hint { font-size: 12px; color: #999; margin-top: 6px; }
+        .form-hint { font-size: 12px; color: #999; margin-top: 6px; }    
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+        }
+
+        .form-row.full { grid-template-columns: 1fr; }
+
+        .form-row .form-group {
+            margin-bottom: 0;
+        }
         
         .btn {
             padding: 12px 32px;
@@ -113,6 +143,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .btn-primary { background: #667eea; color: white; }
         .btn-secondary { background: #6c757d; color: white; }
         
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+        
         .button-group { display: flex; gap: 15px; margin-top: 35px; }
         
         .alert {
@@ -124,6 +160,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         .alert-error { background: #fff5f5; color: #c00; border-left-color: #dc3545; }
         .alert-success { background: #f0fdf4; color: #060; border-left-color: #28a745; }
+        
+        select:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+        }
+        
+        .loading {
+            display: none;
+            font-size: 12px;
+            color: #999;
+            margin-top: 6px;
+        }
     </style>
 </head>
 <body>
@@ -131,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     <div class="container">
         <div class="form-container">
-            <h1>Formulir Pembuatan UKT Baru</h1>
+            <h1>📋 Formulir Pembuatan UKT Baru</h1>
             
             <?php if ($error): ?>
                 <div class="alert alert-error">⚠️ <?php echo $error; ?></div>
@@ -141,7 +189,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div class="alert alert-success">✓ <?php echo $success; ?></div>
             <?php endif; ?>
             
-            <form method="POST">
+            <form method="POST" id="formBuatUKT">
+                <h3>📋 Informasi UKT</h3>
+
                 <div class="form-group">
                     <label>Tanggal Pelaksanaan <span class="required">*</span></label>
                     <input type="date" name="tanggal_pelaksanaan" required>
@@ -154,6 +204,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <div class="form-hint">Tempat dimana UKT akan diselenggarakan</div>
                 </div>
                 
+                <div class="form-group">
+                    <h3>🏛️ Penyelenggara</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Jenis Penyelenggara</label>
+                            <select name="jenis_penyelenggara" id="jenisPenyelenggara" onchange="handleJenisPenyelenggaraChange()">
+                                <option value="">-- Pilih Jenis Penyelenggara --</option>
+                                <option value="pusat">Pusat (PP)</option>
+                                <option value="provinsi">Provinsi (PengProv)</option>
+                                <option value="kota">Kota / Kabupaten (PengKot)</option>
+                            </select>
+                            <div class="form-hint">Tingkat organisasi penyelenggara</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Nama Penyelenggara</label>
+                            <select name="penyelenggara_id" id="namaPenyelenggara" disabled>
+                                <option value="">-- Pilih Penyelenggara --</option>
+                            </select>
+                            <div class="form-hint">Organisasi yang menyelenggarakan UKT</div>
+                            <div class="loading" id="loadingPenyelenggara">Memuat data...</div>
+                        </div>
+                    </div>
+                </div>
+                
                 <div class="button-group">
                     <button type="submit" class="btn btn-primary">✓ Buat UKT</button>
                     <a href="ukt.php" class="btn btn-secondary">Batal</a>
@@ -161,5 +237,43 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </form>
         </div>
     </div>
+    
+    <script>
+        function handleJenisPenyelenggaraChange() {
+            const jenisPenyelenggara = document.getElementById('jenisPenyelenggara').value;
+            const namaPenyelenggaraSelect = document.getElementById('namaPenyelenggara');
+            const loadingDiv = document.getElementById('loadingPenyelenggara');
+            
+            namaPenyelenggaraSelect.innerHTML = '<option value="">-- Pilih Penyelenggara --</option>';
+            namaPenyelenggaraSelect.disabled = true;
+            loadingDiv.style.display = 'none';
+            
+            if (!jenisPenyelenggara) return;
+            
+            loadingDiv.style.display = 'block';
+            
+            fetch('../../api/get_penyelenggara.php?jenis_pengurus=' + encodeURIComponent(jenisPenyelenggara))
+                .then(response => response.json())
+                .then(data => {
+                    loadingDiv.style.display = 'none';
+                    if (data.success && data.data.length > 0) {
+                        namaPenyelenggaraSelect.innerHTML = '<option value="">-- Pilih Penyelenggara --</option>';
+                        data.data.forEach(item => {
+                            const option = document.createElement('option');
+                            option.value = item.id;
+                            option.textContent = item.nama;
+                            namaPenyelenggaraSelect.appendChild(option);
+                        });
+                        namaPenyelenggaraSelect.disabled = false;
+                    } else {
+                        namaPenyelenggaraSelect.innerHTML = '<option value="">-- Tidak ada data --</option>';
+                    }
+                })
+                .catch(error => { 
+                    loadingDiv.style.display = 'none'; 
+                    console.error('Error:', error);
+                });
+        }
+    </script>
 </body>
 </html>

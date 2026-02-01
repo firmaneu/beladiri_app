@@ -22,7 +22,7 @@ $permission_manager = new PermissionManager(
 $GLOBALS['permission_manager'] = $permission_manager;
 
 if (!$permission_manager->can('anggota_read')) {
-    die("âŒ Akses ditolak!");
+    die("❌ Akses ditolak!");
 }
 
 $id = (int)$_GET['id'];
@@ -118,7 +118,7 @@ $age = $birthDate->diff($today)->y;
     </style>
 </head>
 <body>
-    <?php renderNavbar('ðŸ™ Detail Kerohanian'); ?>
+    <?php renderNavbar('🙏 Detail Kerohanian'); ?>
 
     <div class="container">
         <div class="card">
@@ -182,9 +182,9 @@ $age = $birthDate->diff($today)->y;
             <?php if ($_SESSION['role'] == 'admin'): ?>
             <div class="button-group">
                 <button onclick="window.print()" class="btn btn-warning" style="background: #6c757d;">
-                    ðŸ–¨ï¸ Print Detail
+                    🖨️ Print Detail
                 </button>
-                <a href="kerohanian_edit.php?id=<?php echo $id; ?>" class="btn btn-warning">âœï¸ Edit</a>
+                <a href="kerohanian_edit.php?id=<?php echo $id; ?>" class="btn btn-warning">✏️ Edit</a>
             </div>
             <?php endif; ?>
         </div>

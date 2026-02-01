@@ -53,7 +53,7 @@ $filter_pengprov = isset($_GET['filter_pengprov']) ? $_GET['filter_pengprov'] : 
 $filter_pengkot = isset($_GET['filter_pengkot']) ? $_GET['filter_pengkot'] : '';
 $filter_layak_ukt = isset($_GET['filter_layak_ukt']) ? $_GET['filter_layak_ukt'] : '';
 $filter_kerohanian = isset($_GET['filter_kerohanian']) ? $_GET['filter_kerohanian'] : '';
-$print_mode = isset($_GET['print']) ? true : false;
+$print_mode = filter_input(INPUT_GET, 'print', FILTER_VALIDATE_BOOLEAN);
 
 // Fungsi singkatan tingkat
 function singkatTingkat($nama_tingkat) {
@@ -147,9 +147,21 @@ $pengkot_result = $conn->query("SELECT id, nama_pengurus FROM pengurus WHERE jen
 
 $is_readonly = $_SESSION['role'] == 'user';
 
-// Jika mode print
+// Handle print mode with proper validation and error handling
 if ($print_mode) {
+    // Validate we have data to print
+    if (empty($filtered_results)) {
+        // No data to print - redirect back with message
+        $_SESSION['error_message'] = 'Tidak ada data anggota untuk dicetak.';
+        header('Location: ' . $_SERVER['PHP_SELF']);
+        exit;
+    }
+
+    // Set proper headers for print
+    header('Content-Type: text/html; charset=UTF-8');
+    header('Cache-Control: no-cache, no-store, must-revalidate');
     ?>
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -239,6 +251,7 @@ if ($print_mode) {
 </body>
 </html>
     <?php
+    http_response_code(200);
     exit;
 }
 ?>
@@ -395,12 +408,32 @@ if ($print_mode) {
             font-size: 12px;
         }
         
+        /* Left align untuk kolom Nama Lengkap, Aksi */
+        th:nth-child(2), td:nth-child(2),
+        th:nth-child(10), td:nth-child(10) {
+            text-align: left;
+        }
+        
+        /* Center align untuk kolom No Anggota, JK, Tingkat, Unit/Ranting, PengKot/Kab, PengProv, Layak UKT, Kerohanian */
+        th:nth-child(1), td:nth-child(1),
+        th:nth-child(3), td:nth-child(3),
+        th:nth-child(4), td:nth-child(4),
+        th:nth-child(5), td:nth-child(5),
+        th:nth-child(6), td:nth-child(6),
+        th:nth-child(7), td:nth-child(7),
+        th:nth-child(8), td:nth-child(8),
+        th:nth-child(9), td:nth-child(9) {
+            text-align: center;
+        }
+        
         td {
             padding: 11px 12px;
             border-bottom: 1px solid #eee;
             font-size: 13px;
         }
         
+        
+
         tr:hover {
             background: #f9f9f9;
         }

@@ -37,7 +37,7 @@ if ($result->num_rows == 0) {
 }
 $anggota = $result->fetch_assoc();
 
-// Helper function untuk sanitasi nama
+// Helper function untuk sanitasi nama [LAMA - TETAP SAMA]
 function sanitize_name($name) {
     $name = preg_replace("/[^a-z0-9 -]/i", "", $name);
     $name = str_replace(" ", "_", $name);
@@ -45,6 +45,7 @@ function sanitize_name($name) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $no_anggota = $conn->real_escape_string($_POST['no_anggota']); // [BARU - SEBELUMNYA DISABLED]
     $nama_lengkap = $conn->real_escape_string($_POST['nama_lengkap']);
     $tempat_lahir = $conn->real_escape_string($_POST['tempat_lahir']);
     $tanggal_lahir = $_POST['tanggal_lahir'];
@@ -52,8 +53,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $ranting_saat_ini_id = $_POST['ranting_saat_ini_id'] ?: NULL;
     $tingkat_id = $_POST['tingkat_id'] ?: NULL;
     $jenis_anggota = $_POST['jenis_anggota'];
+    $tahun_bergabung = !empty($_POST['tahun_bergabung']) ? (int)$_POST['tahun_bergabung'] : NULL; // [BARU]
+    $no_handphone = $conn->real_escape_string($_POST['no_handphone'] ?? ''); // [BARU]
+    $ukt_terakhir = $_POST['ukt_terakhir'] ?? '';
     
-    // Handle foto upload / penggantian
+    // Validasi no_anggota jika berubah [BARU]
+    if ($no_anggota != $anggota['no_anggota']) {
+        $check = $conn->prepare("SELECT id FROM anggota WHERE no_anggota = ? AND id != ?");
+        $check->bind_param("si", $no_anggota, $id);
+        $check->execute();
+        if ($check->num_rows > 0) {
+            $error = "No Anggota sudah digunakan anggota lain!";
+        }
+    }
+    
+    // Handle foto upload / penggantian [LAMA - TETAP SAMA]
     $foto_path = $anggota['nama_foto']; // default: foto lama
     
     if (isset($_FILES['foto']) && $_FILES['foto']['size'] > 0) {
@@ -61,7 +75,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         
         // Validasi
-        if (!in_array($file_ext, ['jpg', 'jpeg', 'png'])) {
+        $allowed_mimes = ['image/jpeg', 'image/png'];
+        $mime = finfo_file(finfo_open(FILEINFO_MIME_TYPE), $file['tmp_name']);
+        if (!in_array($mime, $allowed_mimes)) {
             $error = "Format foto harus JPG atau PNG!";
         } elseif ($file['size'] > 5242880) { // 5MB
             $error = "Ukuran foto maksimal 5MB!";
@@ -79,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             // Upload foto baru dengan format: NoAnggota_NamaLengkap.ext
             // Contoh: AGT-2024-001_Budi_Santoso.jpg
             $nama_clean = sanitize_name($nama_lengkap);
-            $file_name = $anggota['no_anggota'] . '_' . $nama_clean . '.' . $file_ext;
+            $file_name = $no_anggota . '_' . $nama_clean . '.' . $file_ext;
             $file_path = $upload_dir . $file_name;
             
             if (move_uploaded_file($file['tmp_name'], $file_path)) {
@@ -92,16 +108,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     if (!$error) {
         $sql = "UPDATE anggota SET 
+                no_anggota = ?,
                 nama_lengkap = ?, tempat_lahir = ?, tanggal_lahir = ?, 
                 jenis_kelamin = ?, ranting_saat_ini_id = ?, tingkat_id = ?, 
-                jenis_anggota = ?, nama_foto = ? WHERE id = ?";
+                jenis_anggota = ?, tahun_bergabung = ?, no_handphone = ?,
+                ukt_terakhir = ?, nama_foto = ? WHERE id = ?";
         
         $stmt = $conn->prepare($sql);
         
         if ($stmt) {
-            // Total 9 parameter: 6 string + 2 integer + 1 string
+            // Total 13 parameter
             $stmt->bind_param(
-                "sssssiiis",
+                "sssssisisissi",
+                $no_anggota,
                 $nama_lengkap, 
                 $tempat_lahir, 
                 $tanggal_lahir, 
@@ -109,11 +128,62 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $ranting_saat_ini_id, 
                 $tingkat_id, 
                 $jenis_anggota,
+                $tahun_bergabung,
+                $no_handphone,
+                $ukt_terakhir,
                 $foto_path,
                 $id
             );
             
             if ($stmt->execute()) {
+                // Update prestasi [BARU]
+                if (!empty($_POST['prestasi_id'])) {
+                    for ($i = 0; $i < count($_POST['prestasi_id']); $i++) {
+                        if ($_POST['prestasi_id'][$i] != '') {
+                            $pid = (int)$_POST['prestasi_id'][$i];
+                            $event = $conn->real_escape_string($_POST['prestasi_event_name'][$i] ?? '');
+                            $tgl = $_POST['prestasi_tanggal'][$i] ?? NULL;
+                            $penyelenggara = $conn->real_escape_string($_POST['prestasi_penyelenggara'][$i] ?? '');
+                            $kategori = $conn->real_escape_string($_POST['prestasi_kategori'][$i] ?? '');
+                            $prestasi = $conn->real_escape_string($_POST['prestasi_prestasi_name'][$i] ?? '');
+                            
+                            if ($event) {
+                                $conn->query("UPDATE prestasi SET 
+                                            event_name = '$event',
+                                            tanggal_pelaksanaan = '$tgl',
+                                            penyelenggara = '$penyelenggara',
+                                            kategori = '$kategori',
+                                            prestasi = '$prestasi'
+                                            WHERE id = $pid AND anggota_id = $id");
+                            }
+                        }
+                    }
+                }
+                
+                // Insert prestasi baru [BARU]
+                if (!empty($_POST['new_prestasi_event'])) {
+                    for ($i = 0; $i < count($_POST['new_prestasi_event']); $i++) {
+                        if (!empty($_POST['new_prestasi_event'][$i])) {
+                            $event = $conn->real_escape_string($_POST['new_prestasi_event'][$i]);
+                            $tgl = $_POST['new_prestasi_tanggal'][$i] ?? NULL;
+                            $penyelenggara = $conn->real_escape_string($_POST['new_prestasi_penyelenggara'][$i] ?? '');
+                            $kategori = $conn->real_escape_string($_POST['new_prestasi_kategori'][$i] ?? '');
+                            $prestasi = $conn->real_escape_string($_POST['new_prestasi_prestasi'][$i] ?? '');
+                            
+                            $conn->query("INSERT INTO prestasi (anggota_id, event_name, tanggal_pelaksanaan, penyelenggara, kategori, prestasi) 
+                                        VALUES ($id, '$event', '$tgl', '$penyelenggara', '$kategori', '$prestasi')");
+                        }
+                    }
+                }
+                
+                // Delete prestasi [BARU]
+                if (!empty($_POST['delete_prestasi_ids'])) {
+                    $ids = array_map('intval', explode(',', $_POST['delete_prestasi_ids']));
+                    foreach ($ids as $pid) {
+                        $conn->query("DELETE FROM prestasi WHERE id = $pid AND anggota_id = $id");
+                    }
+                }
+                
                 $success = "Data anggota berhasil diupdate!";
                 header("refresh:2;url=anggota_detail.php?id=$id");
             } else {
@@ -128,6 +198,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 $ranting_result = $conn->query("SELECT id, nama_ranting FROM ranting ORDER BY nama_ranting");
 $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER BY urutan");
+
+// Ambil prestasi untuk ditampilkan [BARU]
+$prestasi_result = $conn->query("SELECT * FROM prestasi WHERE anggota_id = $id ORDER BY tanggal_pelaksanaan DESC");
 ?>
 
 <!DOCTYPE html>
@@ -194,6 +267,8 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
         input[type="text"],
         input[type="date"],
         input[type="file"],
+        input[type="number"],
+        input[type="tel"],
         select {
             width: 100%;
             padding: 11px 14px;
@@ -298,6 +373,30 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
             color: white;
         }
         
+        .btn-add-prestasi {
+            background: #28a745;
+            color: white;
+            padding: 8px 16px;
+            font-size: 12px;
+            margin-top: 15px;
+        }
+        
+        .btn-add-prestasi:hover {
+            background: #218838;
+        }
+        
+        .btn-remove-prestasi {
+            background: #dc3545;
+            color: white;
+            padding: 8px 16px;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+        
+        .btn-remove-prestasi:hover {
+            background: #c82333;
+        }
+        
         .button-group {
             display: flex;
             gap: 10px;
@@ -322,6 +421,28 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
             color: #060;
             border-left-color: #28a745;
         }
+        
+        /* Prestasi Section [BARU] */
+        .prestasi-item {
+            background: #f8f9fa;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+        
+        .prestasi-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .prestasi-item.template {
+            display: none;
+        }
+        
+        .prestasi-item.marked-delete {
+            opacity: 0.5;
+            background: #fff5f5;
+        }
     </style>
 </head>
 <body>
@@ -339,8 +460,8 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
                 <div class="alert alert-success">✓ <?php echo $success; ?></div>
             <?php endif; ?>
             
-            <form method="POST" enctype="multipart/form-data">
-                <!-- Foto Section -->
+            <form method="POST" enctype="multipart/form-data" id="editForm">
+                <!-- Foto Section [LAMA - TETAP SAMA] -->
                 <h3>📸 Foto Profil</h3>
                 
                 <div class="photo-section">
@@ -368,8 +489,9 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
                 <h3>📋 Data Pribadi</h3>
                 
                 <div class="form-group">
-                    <label>No Anggota (tidak bisa diubah)</label>
-                    <input type="text" value="<?php echo $anggota['no_anggota']; ?>" disabled>
+                    <label>No Anggota <span class="required">*</span> (DAPAT DIEDIT)</label>
+                    <input type="text" name="no_anggota" value="<?php echo $anggota['no_anggota']; ?>" required>
+                    <div class="form-hint">Dapat diubah jika diperlukan (harus unik)</div>
                 </div>
                 
                 <div class="form-row">
@@ -398,6 +520,13 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
                         </select>
                     </div>
                 </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>No. Handphone</label>
+                        <input type="tel" name="no_handphone" value="<?php echo htmlspecialchars($anggota['no_handphone'] ?? ''); ?>" placeholder="Contoh: 08xxxxxxxxxx">
+                    </div>
+                </div>
                 
                 <hr>
                 
@@ -409,7 +538,7 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
                         <label>Unit/Ranting Saat Ini <span class="required">*</span></label>
                         <select name="ranting_saat_ini_id" required>
                             <option value="">-- Pilih --</option>
-                            <?php while ($row = $ranting_result->fetch_assoc()): ?>
+                            <?php $ranting_result->data_seek(0); while ($row = $ranting_result->fetch_assoc()): ?>
                                 <option value="<?php echo $row['id']; ?>" <?php echo $anggota['ranting_saat_ini_id'] == $row['id'] ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($row['nama_ranting']); ?>
                                 </option>
@@ -421,7 +550,7 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
                         <label>Tingkat <span class="required">*</span></label>
                         <select name="tingkat_id" required>
                             <option value="">-- Pilih --</option>
-                            <?php while ($row = $tingkatan_result->fetch_assoc()): ?>
+                            <?php $tingkatan_result->data_seek(0); while ($row = $tingkatan_result->fetch_assoc()): ?>
                                 <option value="<?php echo $row['id']; ?>" <?php echo $anggota['tingkat_id'] == $row['id'] ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($row['nama_tingkat']); ?>
                                 </option>
@@ -439,27 +568,155 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
                             <option value="pelatih_unit" <?php echo $anggota['jenis_anggota'] == 'pelatih_unit' ? 'selected' : ''; ?>>Pelatih Unit</option>
                         </select>
                     </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>UKT Terakhir</label>
-                    <input type="text" name="ukt_terakhir" 
-                        value="<?php echo isset($anggota) && !empty($anggota['ukt_terakhir']) ? date('d/m/Y', strtotime($anggota['ukt_terakhir'])) : ''; ?>"
-                        placeholder="Format: dd/mm/yyyy atau yyyy">
-                    <div class="form-hint">
-                        ℹ️ Format: 
-                        <br>• Tanggal lengkap: 15/07/2024 atau 2024-07-15
-                        <br>• Tahun saja: 2024 (otomatis dikonversi ke 02/07/2024)
-                        <br>• Kosongkan jika UKT belum pernah dilakukan
+                    
+                    <div class="form-group">
+                        <label>Tahun Bergabung</label>
+                        <input type="number" name="tahun_bergabung" min="1900" max="2100" value="<?php echo $anggota['tahun_bergabung'] ?? ''; ?>" placeholder="Contoh: 2024">
                     </div>
                 </div>
+                
+                <div class="form-row">                    
+                    <div class="form-group">
+                        <label>UKT Terakhir</label>
+                        <input type="text" name="ukt_terakhir" 
+                            value="<?php echo isset($anggota) && !empty($anggota['ukt_terakhir']) ? date('d/m/Y', strtotime($anggota['ukt_terakhir'])) : ''; ?>"
+                            placeholder="Format: dd/mm/yyyy atau yyyy">
+                        <div class="form-hint">Format: 15/07/2024 atau 2024</div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- Prestasi Section [BARU] -->
+                <h3>🏆 Prestasi yang Diraih</h3>
+                
+                <p class="form-hint" style="margin-bottom: 20px;">Kelola prestasi yang diraih anggota ini.</p>
+                
+                <div id="prestasiList">
+                    <?php 
+                    if ($prestasi_result && $prestasi_result->num_rows > 0):
+                        while ($p = $prestasi_result->fetch_assoc()):
+                    ?>
+                    <div class="prestasi-item" data-prestasi-id="<?php echo $p['id']; ?>">
+                        <input type="hidden" name="prestasi_id[]" value="<?php echo $p['id']; ?>">
+                        
+                        <div class="form-row" style="margin-bottom: 10px;">
+                            <div class="form-group">
+                                <label>Nama Event</label>
+                                <input type="text" name="prestasi_event_name[]" value="<?php echo htmlspecialchars($p['event_name']); ?>" placeholder="Contoh: Kejuaraan Nasional">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row" style="margin-bottom: 10px;">
+                            <div class="form-group">
+                                <label>Tanggal Pelaksanaan</label>
+                                <input type="date" name="prestasi_tanggal[]" value="<?php echo $p['tanggal_pelaksanaan'] ?? ''; ?>">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Penyelenggara</label>
+                                <input type="text" name="prestasi_penyelenggara[]" value="<?php echo htmlspecialchars($p['penyelenggara'] ?? ''); ?>" placeholder="Contoh: KONI">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row" style="margin-bottom: 10px;">
+                            <div class="form-group">
+                                <label>Kategori</label>
+                                <input type="text" name="prestasi_kategori[]" value="<?php echo htmlspecialchars($p['kategori'] ?? ''); ?>" placeholder="Contoh: Putra -60kg">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Prestasi</label>
+                                <input type="text" name="prestasi_prestasi_name[]" value="<?php echo htmlspecialchars($p['prestasi'] ?? ''); ?>" placeholder="Contoh: Juara 1">
+                            </div>
+                        </div>
+                        
+                        <button type="button" class="btn btn-remove-prestasi" onclick="markPrestasi(this)">🗑️ Tandai Hapus</button>
+                    </div>
+                    <?php 
+                        endwhile;
+                    endif;
+                    ?>
+                </div>
+                
+                <!-- Template Prestasi Baru -->
+                <div class="prestasi-item template" id="prestasiTemplate">
+                    <div class="form-row" style="margin-bottom: 10px;">
+                        <div class="form-group">
+                            <label>Nama Event</label>
+                            <input type="text" name="new_prestasi_event[]" placeholder="Contoh: Kejuaraan Nasional">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row" style="margin-bottom: 10px;">
+                        <div class="form-group">
+                            <label>Tanggal Pelaksanaan</label>
+                            <input type="date" name="new_prestasi_tanggal[]">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Penyelenggara</label>
+                            <input type="text" name="new_prestasi_penyelenggara[]" placeholder="Contoh: KONI">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row" style="margin-bottom: 10px;">
+                        <div class="form-group">
+                            <label>Kategori</label>
+                            <input type="text" name="new_prestasi_kategori[]" placeholder="Contoh: Putra -60kg">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Prestasi</label>
+                            <input type="text" name="new_prestasi_prestasi[]" placeholder="Contoh: Juara 1">
+                        </div>
+                    </div>
+                    
+                    <button type="button" class="btn btn-remove-prestasi" onclick="this.parentElement.remove()">🗑️ Hapus</button>
+                </div>
+                
+                <button type="button" class="btn btn-add-prestasi" onclick="addPrestasi()">+ Tambah Prestasi Baru</button>
 
                 <div class="button-group">
                     <button type="submit" class="btn btn-primary">💾 Simpan Perubahan</button>
                     <a href="anggota_detail.php?id=<?php echo $id; ?>" class="btn btn-secondary">Batal</a>
                 </div>
+                
+                <input type="hidden" id="deletePrestasiIds" name="delete_prestasi_ids" value="">
             </form>
         </div>
     </div>
+    
+    <script>
+        let deletePrestasiIds = [];
+        
+        function markPrestasi(btn) {
+            const item = btn.parentElement;
+            const prestasiId = item.getAttribute('data-prestasi-id');
+            
+            if (item.classList.contains('marked-delete')) {
+                // Batalkan hapus
+                item.classList.remove('marked-delete');
+                deletePrestasiIds = deletePrestasiIds.filter(x => x != prestasiId);
+            } else {
+                // Tandai untuk hapus
+                item.classList.add('marked-delete');
+                deletePrestasiIds.push(prestasiId);
+            }
+            
+            document.getElementById('deletePrestasiIds').value = deletePrestasiIds.join(',');
+        }
+        
+        function addPrestasi() {
+            const template = document.getElementById('prestasiTemplate').cloneNode(true);
+            template.classList.remove('template');
+            template.removeAttribute('id');
+            document.getElementById('prestasiList').appendChild(template);
+        }
+        
+        document.getElementById('editForm').addEventListener('submit', function() {
+            document.getElementById('deletePrestasiIds').value = deletePrestasiIds.join(',');
+        });
+    </script>
 </body>
 </html>

@@ -30,7 +30,10 @@ if (!$permission_manager->can('anggota_read')) {
 $id = (int)$_GET['id'];
 
 // Ambil data UKT
-$ukt_result = $conn->query("SELECT * FROM ukt WHERE id = $id");
+$ukt_result = $conn->query("SELECT u.*, p.nama_pengurus as nama_penyelenggara 
+                            FROM ukt u 
+                            LEFT JOIN pengurus p ON u.penyelenggara_id = p.id 
+                            WHERE u.id = $id");
 if ($ukt_result->num_rows == 0) {
     die("UKT tidak ditemukan!");
 }
@@ -54,6 +57,128 @@ $stat_lulus = $conn->query("SELECT COUNT(*) as count FROM ukt_peserta WHERE ukt_
 $stat_tidak = $conn->query("SELECT COUNT(*) as count FROM ukt_peserta WHERE ukt_id = $id AND status = 'tidak_lulus'")->fetch_assoc();
 
 $is_readonly = $_SESSION['role'] == 'user';
+
+// Handle print mode with proper validation and error handling
+$print_mode = filter_input(INPUT_GET, 'print', FILTER_VALIDATE_BOOLEAN);
+
+if ($print_mode) {
+    // Set proper headers for print
+    header('Content-Type: text/html; charset=UTF-8');
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    ?>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print - Daftar Peserta UKT</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 15px; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { margin: 5px 0; font-size: 20px; }
+        .header p { color: #666; font-size: 12px; margin: 2px 0; }
+        .ukt-info { background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        .ukt-info-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .ukt-info-row:last-child { margin-bottom: 0; }
+        .ukt-info-label { font-weight: 600; color: #333; }
+        .ukt-info-value { color: #666; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: left; font-size: 11px; }
+        th { background: #f0f0f0; font-weight: bold; }
+        .stat-summary { margin-top: 20px; display: flex; gap: 30px; }
+        .stat-item { font-size: 12px; }
+        .stat-item span { font-weight: 600; }
+        .print-info { text-align: right; font-size: 10px; color: #666; margin-top: 20px; }
+        @page { size: A4 landscape; margin: 10mm; }
+        @media print {
+            body { margin: 0; padding: 10px; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div style="padding: 10px; text-align: right; border-bottom: 1px solid #ddd;">
+        <button onclick="window.history.back()" style="padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: 600;">
+            ← Kembali
+        </button>
+    </div>
+
+    <div class="header">
+        <h1>Daftar Peserta Ujian Kenaikan Tingkat</h1>
+    </div>
+    
+    <div class="ukt-info">
+        <div class="ukt-info-row">
+            <span class="ukt-info-label">Penyelenggara: </span>
+            <span class="ukt-info-value"><?php echo htmlspecialchars($ukt['nama_penyelenggara'] ?? '-'); ?></span>
+        </div>
+        <div class="ukt-info-row">
+            <span class="ukt-info-label">Tanggal Ujian:</span>
+            <span class="ukt-info-value"><?php echo date('d M Y', strtotime($ukt['tanggal'] ?? 'now')); ?></span>
+        </div>
+        <div class="ukt-info-row">
+            <span class="ukt-info-label">Lokasi:</span>
+            <span class="ukt-info-value"><?php echo htmlspecialchars($ukt['lokasi'] ?? '-'); ?></span>
+        </div>
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 5%;">No</th>
+                <th style="width: 12%;">No Anggota</th>
+                <th style="width: 20%;">Nama Anggota</th>
+                <th style="width: 12%;">Dari Tingkat</th>
+                <th style="width: 12%;">Ke Tingkat</th>
+                <th style="width: 10%;">Nilai Rata</th>
+                <th style="width: 10%;">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php
+            $peserta_result->data_seek(0); // Reset pointer
+            $no = 1;
+            while ($row = $peserta_result->fetch_assoc()):
+                $rata = $row['rata_rata'] ? number_format($row['rata_rata'], 2) : '-';
+                $status_class = $row['status'] == 'lulus' ? 'status-lulus' : 'status-tidak';
+                $status_text = $row['status'] == 'lulus' ? 'Lulus' : ($row['status'] == 'tidak_lulus' ? 'Tidak Lulus' : '-');
+            ?>
+            <tr>
+                <td><?php echo $no++; ?></td>
+                <td><?php echo htmlspecialchars($row['no_anggota']); ?></td>
+                <td><?php echo htmlspecialchars($row['nama_lengkap']); ?></td>
+                <td><?php echo htmlspecialchars($row['tingkat_dari'] ?? '-'); ?></td>
+                <td><?php echo htmlspecialchars($row['tingkat_ke'] ?? '-'); ?></td>
+                <td><?php echo $rata; ?></td>
+                <td class="<?php echo $status_class; ?>"><?php echo $status_text; ?></td>
+            </tr>
+            <?php endwhile; ?>
+        </tbody>
+    </table>
+    
+    <div class="stat-summary">
+        <div class="stat-item">Total Peserta: <span><?php echo $total_peserta; ?></span></div>
+        <div class="stat-item">Lulus: <span style="color: #27ae60;"><?php echo $stat_lulus['count']; ?></span></div>
+        <div class="stat-item">Tidak Lulus: <span style="color: #e74c3c;"><?php echo $stat_tidak['count']; ?></span></div>
+    </div>
+    
+    <div class="print-info">
+        <p>Dicetak dari Sistem Manajemen Perisai Diri</p>
+        <p><?php echo date('d/m/Y H:i'); ?></p>
+    </div>
+    
+    <script>
+        window.onload = function() {
+            window.print();
+        };
+    </script>
+</body>
+</html>
+    <?php
+    http_response_code(200);
+    exit;
+}
 ?>
 
 <!DOCTYPE html>
@@ -74,7 +199,7 @@ $is_readonly = $_SESSION['role'] == 'user';
             justify-content: space-between;
         }
         
-        .container { max-width: 1100px; margin: 20px auto; padding: 0 20px; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
         
         .info-card {
             background: white;
@@ -113,25 +238,120 @@ $is_readonly = $_SESSION['role'] == 'user';
         .stat-label { color: #666; margin-top: 10px; }
         
         table { width: 100%; border-collapse: collapse; }
+
         th {
             background: #f8f9fa;
             padding: 15px;
             text-align: left;
             font-weight: 600;
             border-bottom: 2px solid #ddd;
+            font-size: 13px;
         }
-        td { padding: 12px 15px; border-bottom: 1px solid #eee; }
+
+        td { padding: 12px 15px; border-bottom: 1px solid #eee; font-size: 13px; }
+
         tr:hover { background: #f9f9f9; }
         
+        th:nth-child(2), td:nth-child(2) {
+            text-align: left;
+        }
+
         .status-lulus { color: #27ae60; font-weight: 600; }
         .status-tidak { color: #e74c3c; font-weight: 600; }
         
-        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn { 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            text-decoration: none; 
+            display: inline-block;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s;
+            margin-right: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .btn-disabled {
+            background: #d0d0d0 !important;
+            color: #888 !important;
+            cursor: not-allowed !important;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
         .btn-primary { background: #667eea; color: white; }
         .btn-warning { background: #ffc107; color: black; }
-        .btn-small { padding: 6px 12px; font-size: 12px; }
+        .btn-print { background: #6c757d; color: white; }
+        .btn-lihat { background: #17a2b8; color: white; font-size: 12px; padding: 8px 12px; }
+        
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
         
         .no-data { text-align: center; padding: 40px; color: #999; }
+        
+        .sertifikat-status {
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .sertifikat-ada {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .sertifikat-belum {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .section {
+            background: white;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section h3 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+            font-size: 18px;
+        }
+        
+        /* Center align untuk kolom */
+        th:nth-child(1), td:nth-child(1),    /* No Anggota */
+        th:nth-child(3), td:nth-child(3),    /* Dari Tingkat */
+        th:nth-child(4), td:nth-child(4),    /* Ke Tingkat */
+        th:nth-child(5), td:nth-child(5),    /* Nilai */
+        th:nth-child(6), td:nth-child(6),    /* Status */
+        th:nth-child(7), td:nth-child(7),    /* Sertifikat */
+        th:nth-child(8), td:nth-child(8){    /* Aksi*/
+            text-align: center;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .ukt-info-box {
+            background: #f0f7ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+
+        .ukt-info-box strong {
+            color: #667eea;
+        }
     </style>
 </head>
 <body>
@@ -151,12 +371,25 @@ $is_readonly = $_SESSION['role'] == 'user';
                 <div class="value"><?php echo htmlspecialchars($ukt['lokasi']); ?></div>
             </div>
             
+            <?php if ($ukt['nama_penyelenggara']): ?>
+            <div class="info-row">
+                <div class="label">Penyelenggara</div>
+                <div class="value"><?php echo htmlspecialchars($ukt['nama_penyelenggara']); ?></div>
+            </div>
+            <?php endif; ?>
+            
             <div class="info-row">
                 <div class="label">Dibuat Pada</div>
                 <div class="value"><?php echo date('d M Y H:i', strtotime($ukt['created_at'])); ?></div>
             </div>
         </div>
         
+        <div class="section">
+            <div class="ukt-info-box">
+                <strong>ℹ️ Catatan:</strong> <?php echo htmlspecialchars($ukt['catatan'] ?? '-'); ?>
+            </div>
+        </div>
+
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-number"><?php echo $total_peserta; ?></div>
@@ -176,11 +409,11 @@ $is_readonly = $_SESSION['role'] == 'user';
             <h3 style="color: #333; margin-bottom: 20px;">Daftar Peserta UKT</h3>
             
             <?php if (!$is_readonly): ?>
-            <a href="ukt_tambah_peserta.php?id=<?php echo $id; ?>" class="btn btn-primary" style="margin-bottom: 20px;">+ Tambah Peserta</a>
-            <a href="ukt_input_nilai.php?id=<?php echo $id; ?>" class="btn btn-warning" style="margin-bottom: 20px;">📝 Input Nilai</a>
-            <button onclick="window.print()" class="btn btn-warning" style="background: #6c757d;">
-                🖨️ Print Daftar Peserta UKT
-            </button>
+            <div class="btn-group">
+                <a href="ukt_tambah_peserta.php?id=<?php echo $id; ?>" class="btn btn-primary">+ Tambah Peserta</a>
+                <a href="ukt_input_nilai.php?id=<?php echo $id; ?>" class="btn btn-warning">📝 Input Nilai</a>
+                <a href="?id=<?php echo $id; ?>&print=1" class="btn btn-print">🖨️ Cetak Peserta</a>
+            </div>
             <?php endif; ?>
             
             <?php if ($total_peserta > 0): ?>
@@ -191,9 +424,10 @@ $is_readonly = $_SESSION['role'] == 'user';
                         <th>Nama Anggota</th>
                         <th>Dari Tingkat</th>
                         <th>Ke Tingkat</th>
-                        <th>Nilai</th>
+                        <th>Nilai Rata-rata</th>
                         <th>Status</th>
                         <?php if (!$is_readonly): ?>
+                        <th>Sertifikat</th>
                         <th>Aksi</th>
                         <?php endif; ?>
                     </tr>
@@ -205,7 +439,7 @@ $is_readonly = $_SESSION['role'] == 'user';
                         <td><?php echo htmlspecialchars($row['nama_lengkap']); ?></td>
                         <td><?php echo $row['tingkat_dari'] ?? '-'; ?></td>
                         <td><?php echo $row['tingkat_ke'] ?? '-'; ?></td>
-                        <td><?php echo $row['nilai'] ?? '-'; ?></td>
+                        <td><?php echo $row['rata_rata'] ? number_format($row['rata_rata'], 2) : '-'; ?></td>
                         <td>
                             <?php 
                             if ($row['status'] == 'lulus') echo '<span class="status-lulus">✓ LULUS</span>';
@@ -215,8 +449,35 @@ $is_readonly = $_SESSION['role'] == 'user';
                         </td>
                         <?php if (!$is_readonly): ?>
                         <td>
+                            <?php 
+                            if ($row['status'] == 'lulus') {
+                                if (!empty($row['sertifikat_path'])) {
+                                    echo '<span class="sertifikat-status sertifikat-ada">✓ Ada</span>';
+                                } else {
+                                    echo '<span class="sertifikat-status sertifikat-belum">❌ Belum</span>';
+                                }
+                            } else {
+                                echo '-';
+                            }
+                            ?>
+                        </td>
+                        <td>
+                            <a href="ukt_detail_peserta.php?id=<?php echo $row['id']; ?>&ukt_id=<?php echo $id; ?>" 
+                               class="btn btn-lihat">👁️ Lihat</a>
+                            
+                            <?php if ($row['status'] == 'lulus'): ?>
+                                <a href="ukt_input_sertifikat.php?id=<?php echo $row['id']; ?>&ukt_id=<?php echo $id; ?>" 
+                                class="btn btn-primary" style="padding: 8px 12px; font-size: 12px;">
+                                    📜 Sertifikat
+                                </a>
+                            <?php else: ?>
+                                <button class="btn btn-primary btn-disabled" style="padding: 8px 12px; font-size: 12px;" disabled title="Hanya peserta yang lulus dapat upload sertifikat">
+                                    📜 Sertifikat
+                                </button>
+                            <?php endif; ?>
+                            
                             <a href="ukt_hapus_peserta.php?id=<?php echo $row['id']; ?>&ukt_id=<?php echo $id; ?>" 
-                               class="btn btn-primary btn-small" onclick="return confirm('Hapus peserta?')">Hapus</a>
+                               class="btn btn-primary" onclick="return confirm('Hapus peserta?')" style="padding: 8px 12px; font-size: 12px;">Hapus</a>
                         </td>
                         <?php endif; ?>
                     </tr>

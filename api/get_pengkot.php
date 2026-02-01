@@ -11,7 +11,10 @@ if ($pengprov_id === 0) {
 }
 
 // Query pengkot yang berada di bawah pengprov yang dipilih
-$result = $conn->query("SELECT id, nama_pengurus FROM pengurus WHERE jenis_pengurus = 'kota' AND pengurus_induk_id = $pengprov_id ORDER BY nama_pengurus");
+$stmt = $conn->prepare("SELECT id, nama_pengurus FROM pengurus WHERE jenis_pengurus = 'kota' AND pengurus_induk_id = ? ORDER BY nama_pengurus");
+$stmt->bind_param("i", $pengprov_id);
+$stmt->execute();
+$result = $stmt->get_result();
 
 $data = [];
 while ($row = $result->fetch_assoc()) {

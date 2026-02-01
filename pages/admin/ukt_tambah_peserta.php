@@ -209,17 +209,20 @@ $anggota_result = $conn->query("SELECT a.id, a.no_anggota, a.nama_lengkap, a.tin
         }
         
         h1 { color: #333; margin-bottom: 10px; }
-        h2 { color: #666; font-size: 14px; margin-bottom: 25px; }
-        
+                
         .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; color: #333; font-weight: 600; }
+        label { 
+            display: block; 
+            margin-bottom: 8px; 
+            color: #333; 
+            font-weight: 600; 
+        }
         
-        input[type="text"], select {
-            width: 100%;
-            padding: 10px 14px;
-            border: 1px solid #ddd;
+        input[type="file"] {
+            padding: 10px;
+            border: 2px dashed #667eea;
             border-radius: 5px;
-            font-size: 14px;
+            width: 100%;
         }
         
         input:focus, select:focus {
@@ -258,10 +261,11 @@ $anggota_result = $conn->query("SELECT a.id, a.no_anggota, a.nama_lengkap, a.tin
         
         .info-box {
             background: #f0f7ff;
-            padding: 15px;
             border-left: 4px solid #667eea;
+            padding: 15px;
             border-radius: 4px;
-            margin-bottom: 25px;
+            margin-bottom: 15px;
+            font-size: 13px;
         }
         
         .info-box strong { color: #667eea; }
@@ -284,7 +288,7 @@ $anggota_result = $conn->query("SELECT a.id, a.no_anggota, a.nama_lengkap, a.tin
     <div class="container">
         <div class="form-container">
             <h1>Tambah Peserta UKT</h1>
-            <h2>UKT: <?php echo date('d M Y', strtotime($ukt['tanggal_pelaksanaan'])); ?> - <?php echo htmlspecialchars($ukt['lokasi']); ?></h2>
+            <p style="font-size:14px;color:#666;margin-bottom:25px;"><strong>UKT: <?php echo date('d M Y', strtotime($ukt['tanggal_pelaksanaan'])); ?> - <?php echo htmlspecialchars($ukt['lokasi']); ?></strong></p>
             
             <?php if ($error): ?>
                 <div class="alert alert-error">⚠️ <?php echo $error; ?></div>
@@ -296,25 +300,6 @@ $anggota_result = $conn->query("SELECT a.id, a.no_anggota, a.nama_lengkap, a.tin
             
             <div class="info-box">
                 <strong>ℹ️ Informasi:</strong> Pilih anggota. Tingkat target akan otomatis naik 1 level dari tingkat saat ini.
-            </div>
-
-            <div style="margin-bottom:20px;">
-                <h3 style="margin-bottom:8px;">Tambah Data Masal (CSV)</h3>
-                <p style="font-size:13px;color:#555;margin-top:0;">Unggah file CSV dengan kolom <code>no_anggota</code> (atau <code>anggota_id</code>). Unduh template: <a href="?download_template=ukt_peserta&amp;id=<?php echo $id; ?>">Download CSV Template</a></p>
-                <form method="POST" enctype="multipart/form-data">
-                    <div class="form-group">
-                        <label>File CSV <span class="required">*</span></label>
-                        <input type="file" name="csv_file" accept=".csv" required>
-                        <div class="form-hint">Setiap baris berisi <code>no_anggota</code> atau <code>anggota_id</code>. Baris pertama bisa berupa header.</div>
-                    </div>
-                    <div class="form-group">
-                        <label><input type="checkbox" name="skip_header" checked> File memiliki baris header (akan dilewati)</label>
-                    </div>
-                    <div class="button-group" style="margin-bottom:18px;">
-                        <button type="submit" class="btn btn-primary">✓ Unggah CSV</button>
-                        <a href="ukt_detail.php?id=<?php echo $id; ?>" class="btn btn-secondary">Batal</a>
-                    </div>
-                </form>
             </div>
 
             <form method="POST">
@@ -343,10 +328,29 @@ $anggota_result = $conn->query("SELECT a.id, a.no_anggota, a.nama_lengkap, a.tin
                 <!-- Kolom 'Tingkat' dihapus; tingkat diambil otomatis dari data anggota -->
                 
                 <div class="button-group">
-                    <button type="submit" class="btn btn-primary">✓ Tambah Peserta</button>
+                    <button type="submit" class="btn btn-primary">+ Tambah Peserta</button>
                     <a href="ukt_detail.php?id=<?php echo $id; ?>" class="btn btn-secondary">Batal</a>
                 </div>
             </form>
+
+            <div style="margin-top:20px;margin-bottom:20px;">
+                <h3 style="margin-bottom:8px;">Tambah Data Masal (CSV)</h3>
+                <p style="font-size:13px;color:#555;margin-top:0;margin-bottom: 10px;">Unggah file CSV dengan kolom <code>no_anggota</code> (atau <code>anggota_id</code>). Unduh template: <a href="?download_template=ukt_peserta&amp;id=<?php echo $id; ?>">Download CSV Template</a></p>
+                <form method="POST" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label>File CSV <span class="required">*</span></label>
+                        <input type="file" name="csv_file" accept=".csv" required>
+                        <div class="form-hint">Setiap baris berisi <code>no_anggota</code> atau <code>anggota_id</code>. Baris pertama bisa berupa header.</div>
+                    </div>
+                    <div class="form-group">
+                        <label><input type="checkbox" name="skip_header" checked> File memiliki baris header (akan dilewati)</label>
+                    </div>
+                    <div class="button-group" style="margin-bottom:18px;">
+                        <button type="submit" class="btn btn-primary">⬆️ Unggah CSV</button>
+                        <a href="ukt_detail.php?id=<?php echo $id; ?>" class="btn btn-secondary">Batal</a>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
     

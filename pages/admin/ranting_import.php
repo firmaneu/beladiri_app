@@ -28,6 +28,13 @@ $error = '';
 $success = '';
 $import_log = [];
 
+// Helper function untuk mencatat log import
+function log_import($row_num, $message, $type = 'info') {
+    $icon = $type === 'success' ? '✅' : ($type === 'error' ? '❌' : '⚠️');
+    $GLOBALS['import_log'][] = "Baris $row_num: $icon $message";
+    return $type;
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
     $file = $_FILES['csv_file'];
     $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
@@ -46,6 +53,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
             $imported = 0;
             $skipped = 0;
             
+            // Prepared statements untuk check duplikat
+            $check_nama_stmt = $conn->prepare("SELECT id FROM ranting WHERE nama_ranting = ?");
+            $check_sk_stmt = $conn->prepare("SELECT id FROM ranting WHERE no_sk_pembentukan = ?");
+            
+            // Prepared statement untuk insert
+            $insert_stmt = $conn->prepare("INSERT INTO ranting (nama_ranting, jenis, tanggal_sk_pembentukan, no_sk_pembentukan, 
+                            alamat, ketua_nama, penanggung_jawab_teknik, no_kontak, pengurus_kota_id)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            
             while ($row = fgetcsv($handle)) {
                 $row_num++;
                 
@@ -62,59 +78,55 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
                 $kontak = trim($row[7] ?? '');
                 $pengurus_kota_id = isset($row[8]) ? (int)trim($row[8]) : 0;
                 
-                // Validasi
+                // Validasi data tidak lengkap
                 if (empty($nama_ranting) || empty($jenis) || empty($tanggal_sk) || !$pengurus_kota_id) {
-                    $import_log[] = "Baris $row_num: ⚠️ Data tidak lengkap - dilewati";
+                    log_import($row_num, "Data tidak lengkap - dilewati", 'warning');
                     $skipped++;
                     continue;
                 }
                 
                 // Check duplikat nama
-                $check = $conn->query("SELECT id FROM ranting WHERE nama_ranting = '" . $conn->real_escape_string($nama_ranting) . "'");
-                if ($check->num_rows > 0) {
-                    $import_log[] = "Baris $row_num: ⚠️ Nama ranting sudah ada - dilewati";
+                $check_nama_stmt->bind_param("s", $nama_ranting);
+                $check_nama_stmt->execute();
+                $check_nama_result = $check_nama_stmt->get_result();
+                if ($check_nama_result->num_rows > 0) {
+                    log_import($row_num, "Nama ranting '$nama_ranting' sudah ada - dilewati", 'warning');
                     $skipped++;
                     continue;
                 }
                 
                 // Check SK jika diisi
                 if (!empty($no_sk_pembentukan)) {
-                    $check_sk = $conn->query("SELECT id FROM ranting WHERE no_sk_pembentukan = '" . $conn->real_escape_string($no_sk_pembentukan) . "'");
-                    if ($check_sk->num_rows > 0) {
-                        $import_log[] = "Baris $row_num: ⚠️ No SK sudah digunakan - dilewati";
+                    $check_sk_stmt->bind_param("s", $no_sk_pembentukan);
+                    $check_sk_stmt->execute();
+                    $check_sk_result = $check_sk_stmt->get_result();
+                    if ($check_sk_result->num_rows > 0) {
+                        log_import($row_num, "No SK '$no_sk_pembentukan' sudah digunakan - dilewati", 'warning');
                         $skipped++;
                         continue;
                     }
                 }
                 
-                // Insert
-                $sql = "INSERT INTO ranting (nama_ranting, jenis, tanggal_sk_pembentukan, no_sk_pembentukan, 
-                        alamat, ketua_nama, penanggung_jawab_teknik, no_kontak, pengurus_kota_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                // Insert data
+                $insert_stmt->bind_param("ssssssssi",
+                    $nama_ranting, $jenis, $tanggal_sk, $no_sk_pembentukan,
+                    $alamat, $ketua, $pj_teknik, $kontak, $pengurus_kota_id
+                );
                 
-                $stmt = $conn->prepare($sql);
-                
-                if ($stmt) {
-                    $stmt->bind_param("ssssssssi",
-                        $nama_ranting, $jenis, $tanggal_sk, $no_sk_pembentukan,
-                        $alamat, $ketua, $pj_teknik, $kontak, $pengurus_kota_id
-                    );
-                    
-                    if ($stmt->execute()) {
-                        $import_log[] = "Baris $row_num: ✅ '$nama_ranting' berhasil ditambahkan";
-                        $imported++;
-                    } else {
-                        $import_log[] = "Baris $row_num: ⚠️ Error insert - " . $stmt->error;
-                        $skipped++;
-                    }
-                    $stmt->close();
+                if ($insert_stmt->execute()) {
+                    log_import($row_num, "'$nama_ranting' berhasil ditambahkan", 'success');
+                    $imported++;
                 } else {
-                    $import_log[] = "Baris $row_num: ⚠️ Error prepare - " . $conn->error;
+                    log_import($row_num, "Error insert - " . $insert_stmt->error, 'error');
                     $skipped++;
                 }
             }
             
             fclose($handle);
+            $check_nama_stmt->close();
+            $check_sk_stmt->close();
+            $insert_stmt->close();
+            
             $success = "Import selesai! $imported ranting berhasil ditambahkan, $skipped dilewati.";
         }
     }
@@ -137,7 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
             display: flex;
             justify-content: space-between;
         }
-        .container { max-width: 900px; margin: 20px auto; padding: 0 20px; }
+        .container { max-width: 1000px; margin: 20px auto; padding: 0 20px; }
         .form-container {
             background: white;
             padding: 30px;
@@ -161,6 +173,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
             border-radius: 4px;
         }
         .info-box h4 { color: #667eea; margin-bottom: 10px; }
+        .info-box p { font-size: 13px; color: #333; margin-bottom: 8px; font-family: monospace; overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
+
         .template-table {
             width: 100%;
             border-collapse: collapse;
@@ -171,8 +185,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
             border: 1px solid #ddd;
             padding: 8px;
             text-align: left;
+            font-family: monospace;
         }
-        .template-table th { background: #f0f7ff; font-weight: 600; }
+
+        .template-table th { 
+            background: #f0f7ff; 
+            font-weight: 600; 
+            font-family: monospace;
+        }
+        
         .btn {
             padding: 12px 30px;
             border: none;

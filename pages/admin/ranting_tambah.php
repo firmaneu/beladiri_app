@@ -21,7 +21,7 @@ $permission_manager = new PermissionManager(
 $GLOBALS['permission_manager'] = $permission_manager;
 
 if (!$permission_manager->can('anggota_read')) {
-    die("âŒ Akses ditolak!");
+    die("❌ Akses ditolak!");
 }
 
 $error = '';
@@ -120,7 +120,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-$pengurus_result = $conn->query("SELECT id, nama_pengurus FROM pengurus WHERE jenis_pengurus = 'kota' ORDER BY nama_pengurus");
+// Ambil data Pengurus Provinsi
+$pengurus_provinsi_result = $conn->query("SELECT id, nama_pengurus FROM pengurus WHERE jenis_pengurus = 'provinsi' ORDER BY nama_pengurus");
+
 $hari_options = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 ?>
 
@@ -196,64 +198,66 @@ $hari_options = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
         .button-group { display: flex; gap: 15px; margin-top: 35px; }
 
         .alert {
-            padding: 15px;
+            padding: 15px 20px;
             border-radius: 6px;
-            margin-bottom: 25px;
-            border-left: 4px solid;
+            margin-bottom: 20px;
+            font-weight: 600;
         }
-        .alert-error { background: #fff5f5; color: #c00; border-left-color: #dc3545; }
-        .alert-success { background: #f0fdf4; color: #060; border-left-color: #28a745; }
-
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
         .info-box {
-            background: #f0f7ff;
+            background: #e7f3ff;
             border-left: 4px solid #667eea;
             padding: 15px;
+            margin-bottom: 20px;
             border-radius: 4px;
-            margin-bottom: 25px;
+            color: #333;
+            font-size: 13px;
         }
-
-        .info-box strong { color: #667eea; }
-
+        
         .jadwal-item {
-            background: white;
-            padding: 15px;
-            border-radius: 5px;
-            border-left: 3px solid #667eea;
-            margin-bottom: 10px;
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #eee;
         }
-
+        
         .jadwal-row {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr 50px;
+            grid-template-columns: 1fr 1fr 1fr auto;
             gap: 15px;
-            margin-bottom: 15px;
-            align-items: end;
+            align-items: flex-end;
         }
-
+        
         .jadwal-remove {
             background: #dc3545;
             color: white;
-            padding: 10px;
             border: none;
-            border-radius: 5px;
+            padding: 10px 15px;
+            border-radius: 4px;
             cursor: pointer;
             font-weight: 600;
         }
-
+        
         .jadwal-remove:hover {
             background: #c82333;
         }
         
-        #jadwal-list {
-            margin-bottom: 15px;
-        }
-        
-        .jadwal-item {
-            background: white;
-            padding: 15px;
-            border-radius: 5px;
-            border-left: 3px solid #667eea;
-            margin-bottom: 10px;
+        select:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
         }
     </style>
 </head>
@@ -262,14 +266,12 @@ $hari_options = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
     
     <div class="container">
         <div class="form-container">
-            <h1>Formulir Tambah Unit/Ranting Baru</h1>
-            
             <?php if ($error): ?>
-                <div class="alert alert-error">âš ï¸ <?php echo $error; ?></div>
+                <div class="alert alert-error">❌ <?php echo $error; ?></div>
             <?php endif; ?>
             
             <?php if ($success): ?>
-                <div class="alert alert-success">âœ" <?php echo $success; ?></div>
+                <div class="alert alert-success">✓ <?php echo $success; ?></div>
             <?php endif; ?>
             
             <form method="POST" enctype="multipart/form-data">
@@ -326,6 +328,27 @@ $hari_options = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
                 
                 <div class="form-row">
                     <div class="form-group">
+                        <label>Pengurus Provinsi <span class="required">*</span></label>
+                        <select name="pengurus_provinsi_id" id="pengurus_provinsi_id" onchange="updatePengKot()" required>
+                            <option value="">-- Pilih Pengurus Provinsi --</option>
+                            <?php while ($row = $pengurus_provinsi_result->fetch_assoc()): ?>
+                                <option value="<?php echo $row['id']; ?>"><?php echo htmlspecialchars($row['nama_pengurus']); ?></option>
+                            <?php endwhile; ?>
+                        </select>
+                        <div class="form-hint">Pilih provinsi terlebih dahulu</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Pengurus Kota <span class="required">*</span></label>
+                        <select name="pengurus_kota_id" id="pengurus_kota_id" required disabled>
+                            <option value="">-- Pilih Pengurus Kota --</option>
+                        </select>
+                        <div class="form-hint">Akan ter-update sesuai provinsi yang dipilih</div>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
                         <label>Nama Ketua <span class="required">*</span></label>
                         <input type="text" name="ketua_nama" required>
                     </div>
@@ -340,16 +363,6 @@ $hari_options = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
                     <div class="form-group">
                         <label>No Kontak <span class="required">*</span></label>
                         <input type="tel" name="no_kontak" required placeholder="08xxxxxxxxxx">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Pengurus Kota <span class="required">*</span></label>
-                        <select name="pengurus_kota_id" required>
-                            <option value="">-- Pilih Pengurus Kota --</option>
-                            <?php while ($row = $pengurus_result->fetch_assoc()): ?>
-                                <option value="<?php echo $row['id']; ?>"><?php echo htmlspecialchars($row['nama_pengurus']); ?></option>
-                            <?php endwhile; ?>
-                        </select>
                     </div>
                 </div>
                 
@@ -421,6 +434,39 @@ $hari_options = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
             if (element) {
                 element.remove();
             }
+        }
+        
+        // Fungsi untuk update dropdown Pengurus Kota via AJAX
+        function updatePengKot() {
+            const pengprovSelect = document.getElementById('pengurus_provinsi_id');
+            const pengkotSelect = document.getElementById('pengurus_kota_id');
+            
+            const pengprovId = pengprovSelect.value;
+            
+            if (pengprovId === '') {
+                pengkotSelect.disabled = true;
+                pengkotSelect.innerHTML = '<option value="">-- Pilih Pengurus Kota --</option>';
+                return;
+            }
+            
+            pengkotSelect.disabled = false;
+            
+            // Fetch pengkot yang ada di bawah pengprov ini
+            fetch('../../api/get_pengkot.php?pengprov_id=' + pengprovId)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let html = '<option value="">-- Pilih Pengurus Kota --</option>';
+                        data.data.forEach(pengkot => {
+                            html += '<option value="' + pengkot.id + '">' + pengkot.nama_pengurus + '</option>';
+                        });
+                        pengkotSelect.innerHTML = html;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Gagal memuat data Pengurus Kota');
+                });
         }
     </script>
 </body>

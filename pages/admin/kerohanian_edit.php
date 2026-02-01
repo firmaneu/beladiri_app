@@ -22,7 +22,7 @@ $permission_manager = new PermissionManager(
 $GLOBALS['permission_manager'] = $permission_manager;
 
 if (!$permission_manager->can('anggota_read')) {
-    die("âŒ Akses ditolak!");
+    die("❌ Akses ditolak!");
 }
 
 $id = (int)$_GET['id'];
@@ -150,18 +150,18 @@ $tingkat_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER BY 
     </style>
 </head>
 <body>
-    <?php renderNavbar('âœï¸ Edit Kerohanian'); ?>
+    <?php renderNavbar('✏️Edit Kerohanian'); ?>
     
     <div class="container">
         <div class="form-container">
             <h1>Edit Data Kerohanian</h1>
             
             <?php if ($error): ?>
-                <div class="alert alert-error">âš ï¸ <?php echo $error; ?></div>
+                <div class="alert alert-error">⚠️ <?php echo $error; ?></div>
             <?php endif; ?>
             
             <?php if ($success): ?>
-                <div class="alert alert-success">âœ" <?php echo $success; ?></div>
+                <div class="alert alert-success">✅ <?php echo $success; ?></div>
             <?php endif; ?>
             
             <form method="POST">
@@ -214,7 +214,7 @@ $tingkat_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER BY 
                 </div>
                 
                 <div class="button-group">
-                    <button type="submit" class="btn btn-primary">ðŸ'¾ Simpan Perubahan</button>
+                    <button type="submit" class="btn btn-primary">✅ Simpan Perubahan</button>
                     <a href="kerohanian_detail.php?id=<?php echo $id; ?>" class="btn btn-secondary">Batal</a>
                 </div>
             </form>

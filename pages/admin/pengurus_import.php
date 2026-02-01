@@ -227,6 +227,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
             border-radius: 4px;
         }
         
+        .info-box h4 { color: #667eea; margin-bottom: 10px; }
+        .info-box p { font-size: 13px; color: #333; margin-bottom: 8px; font-family: monospace; overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
+        
+
         .template-table {
             width: 100%;
             border-collapse: collapse;
@@ -238,11 +242,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
             border: 1px solid #ddd;
             padding: 8px;
             text-align: left;
+            
         }
         
         .template-table th {
             background: #f0f7ff;
             font-weight: 600;
+            font-family: monospace;
         }
         
         .btn {
@@ -289,7 +295,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
     </style>
 </head>
 <body>
-    <?php renderNavbar('📥 Import Pengurus'); ?>
+    <?php renderNavbar('⬆️ Import Pengurus'); ?>
     
     <div class="container">
         <div class="form-container">
@@ -300,7 +306,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
             <?php endif; ?>
             
             <?php if ($success): ?>
-                <div class="alert alert-success">✓ <?php echo $success; ?></div>
+                <div class="alert alert-success">✅ <?php echo $success; ?></div>
                 <?php if (count($import_log) > 0): ?>
                 <div class="log-box">
                     <strong>📋 Detail Import:</strong><br>
@@ -314,15 +320,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
             <div class="info-box">
                 <h4 style="color: #667eea; margin-bottom: 10px;">📋 Format File CSV</h4>
                 <p><strong>CSV harus memiliki kolom:</strong></p>
-                <ol style="margin-left: 20px; margin-top: 8px;">
-                    <li><strong>Jenis</strong> - pusat, provinsi, atau kota</li>
-                    <li><strong>Nama Pengurus</strong> - Nama lengkap pengurus</li>
-                    <li><strong>Ketua</strong> - Nama ketua pengurus</li>
-                    <li><strong>SK</strong> - Nomor SK kepengurusan</li>
-                    <li><strong>Periode Mulai</strong> - DD-MM-YYYY atau YYYY-MM-DD</li>
-                    <li><strong>Periode Akhir</strong> - DD-MM-YYYY atau YYYY-MM-DD</li>
-                    <li><strong>Alamat</strong> - Alamat sekretariat (opsional)</li>
-                    <li><strong>Pengurus Induk</strong> - Nama pengurus yang menaungi (opsional)</li>
+                <ol style="margin-left: 20px; margin-top: 8px; font-size: 13px; color: #333; margin-bottom: 8px; font-family: monospace; overflow-wrap: anywhere; word-break: break-word; white-space: normal;">
+                    <li style="margin-bottom: 6px;"><strong>Jenis</strong> - pusat, provinsi, atau kota</li>
+                    <li style="margin-bottom: 6px;"><strong>Nama Pengurus</strong> - Nama lengkap pengurus</li>
+                    <li style="margin-bottom: 6px;"><strong>Ketua</strong> - Nama ketua pengurus</li>
+                    <li style="margin-bottom: 6px;"><strong>SK</strong> - Nomor SK kepengurusan</li>
+                    <li style="margin-bottom: 6px;"><strong>Periode Mulai</strong> - DD-MM-YYYY atau YYYY-MM-DD</li>
+                    <li style="margin-bottom: 6px;"><strong>Periode Akhir</strong> - DD-MM-YYYY atau YYYY-MM-DD</li>
+                    <li style="margin-bottom: 6px;"><strong>Alamat</strong> - Alamat sekretariat (opsional)</li>
+                    <li style="margin-bottom: 6px;"><strong>Pengurus Induk</strong> - Nama pengurus yang menaungi (opsional)</li>
                 </ol>
                 
                 <p style="margin-top: 15px; font-weight: 600;">✅ Contoh Format CSV:</p>
@@ -365,7 +371,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['csv_file'])) {
                 </div>
                 
                 <div class="button-group">
-                    <button type="submit" class="btn btn-primary">📥 Upload & Import</button>
+                    <button type="submit" class="btn btn-primary">⬆️ Upload & Import</button>
                     <a href="pengurus.php" class="btn btn-secondary">Batal</a>
                 </div>
             </form>

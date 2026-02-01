@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Sistem Manajemen Lembaga Beladiri</title>
+    <title>Login - Sistem Informasi & Manajemen Perisai DIri</title>
     <style>
         * {
             margin: 0;
@@ -148,7 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 </head>
 <body>
     <div class="login-container">
-        <h1>🥋 Beladiri Management</h1>
+        <h1>🥋 Manajemen Perisai Diri</h1>
         
         <?php if ($error): ?>
             <div class="error"><?php echo $error; ?></div>

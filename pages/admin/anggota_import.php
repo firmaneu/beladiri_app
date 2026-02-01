@@ -56,8 +56,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file_excel'])) {
             $tingkat_id = (int)($row[6] ?? 0);
             $ranting_saat_ini_id = isset($row[7]) ? (int)$row[7] : NULL;
             
-            $check = $conn->query("SELECT id FROM anggota WHERE no_anggota = '$no_anggota'");
-            if ($check->num_rows > 0) {
+            $check = $conn->prepare("SELECT id FROM anggota WHERE no_anggota = ?");
+            $check->bind_param("s", $no_anggota);
+            $check->execute();
+            $check_result = $check->get_result();
+            if ($check_result->num_rows > 0) {
                 $errors[] = "Baris $row_num: No Anggota sudah ada!";
                 continue;
             }
@@ -99,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file_excel'])) {
             justify-content: space-between;
         }
         
-        .container { max-width: 600px; margin: 20px auto; padding: 0 20px; }
+        .container { max-width: 900px; margin: 20px auto; padding: 0 20px; }
         .form-container {
             background: white;
             padding: 30px;
@@ -136,8 +139,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file_excel'])) {
         .template-info h4 { color: #667eea; margin-bottom: 10px; }
         .template-info p { font-size: 13px; color: #333; margin-bottom: 8px; font-family: monospace; overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
         .description, .alert, .template-info { overflow-wrap: anywhere; word-break: break-word; white-space: normal; }
-        .button-group { display: flex; gap: 10px; margin-top: 30px; flex-wrap: wrap; }
-        .container { max-width: 600px; margin: 20px auto; padding: 0 20px; box-sizing: border-box; }
         
         .btn {
             padding: 12px 30px;
@@ -181,7 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['file_excel'])) {
             <?php endif; ?>
             
             <div class="template-info">
-                <h4>📋 Format CSV</h4>
+                <h4>📋 Format File CSV</h4>
                 <p><strong>Header:</strong> no_anggota,nama_lengkap,tempat_lahir,tanggal_lahir,jenis_kelamin,jenis_anggota,tingkat_id,ranting_saat_ini_id</p>
                 <p><strong>Contoh:</strong></p>
                 <p>AGT-001,Budi Santoso,Jakarta,1990-05-15,L,murid,1,1</p>

@@ -180,8 +180,7 @@ $total_peserta = $peserta_result->num_rows;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
-        h1 { color: #333; margin-bottom: 10px; }
-        h2 { color: #666; font-size: 14px; margin-bottom: 25px; }
+        h1 { color: #333; margin-bottom: 10px; }     
         
         .action-buttons {
             display: flex;
@@ -319,7 +318,7 @@ $total_peserta = $peserta_result->num_rows;
     <div class="container">
         <div class="form-container">
             <h1>Input Nilai Peserta UKT</h1>
-            <h2>UKT: <?php echo date('d M Y', strtotime($ukt['tanggal_pelaksanaan'])); ?> - <?php echo htmlspecialchars($ukt['lokasi']); ?></h2>
+            <p style="color: #666; font-size: 14px; margin-bottom: 25px;">UKT: <strong><?php echo date('d M Y', strtotime($ukt['tanggal_pelaksanaan'])); ?> - <?php echo htmlspecialchars($ukt['lokasi']); ?></strong></p>
             
             <?php if ($error): ?>
                 <div class="alert alert-error">⚠️ <?php echo $error; ?></div>

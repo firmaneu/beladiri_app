@@ -43,7 +43,7 @@ if ($result->num_rows == 0) {
 
 $anggota = $result->fetch_assoc();
 
-// Ambil riwayat UKT
+// Ambil riwayat UKT [LAMA - TETAP SAMA]
 $ukt_sql = "SELECT up.*, u.tanggal_pelaksanaan, u.lokasi, 
             t1.nama_tingkat as tingkat_dari, t2.nama_tingkat as tingkat_ke
             FROM ukt_peserta up
@@ -55,7 +55,7 @@ $ukt_sql = "SELECT up.*, u.tanggal_pelaksanaan, u.lokasi,
 
 $ukt_result = $conn->query($ukt_sql);
 
-// Ambil UKT Terakhir yang LULUS
+// Ambil UKT Terakhir yang LULUS [LAMA - TETAP SAMA]
 $ukt_terakhir_query = $conn->query(
     "SELECT u.tanggal_pelaksanaan 
      FROM ukt_peserta up
@@ -71,21 +71,34 @@ if ($ukt_terakhir_query->num_rows > 0) {
     $ukt_terakhir_date = $data['tanggal_pelaksanaan'];
 }
 
-// Fallback ke kolom ukt_terakhir jika data UKT kosong (dari input manual saat registrasi)
+// Fallback ke kolom ukt_terakhir jika data UKT kosong [LAMA - TETAP SAMA]
 if ($ukt_terakhir_date === null && !empty($anggota['ukt_terakhir'])) {
     $ukt_terakhir_date = $anggota['ukt_terakhir'];
 }
 
-// Ambil data kerohanian
+// Ambil data kerohanian [LAMA - TETAP SAMA]
 $kerohanian_sql = "SELECT * FROM kerohanian WHERE anggota_id = $id ORDER BY tanggal_pembukaan DESC";
 $kerohanian_result = $conn->query($kerohanian_sql);
 
-// Hitung umur
+// Ambil data prestasi [BARU]
+$prestasi_sql = "SELECT * FROM prestasi WHERE anggota_id = $id ORDER BY tanggal_pelaksanaan DESC";
+$prestasi_result = $conn->query($prestasi_sql);
+
+// Ambil data sertifikat UKT [BARU - SERTIFIKAT]
+$sertifikat_sql = "SELECT up.*, u.tanggal_pelaksanaan, t2.nama_tingkat as tingkat_ke
+                   FROM ukt_peserta up
+                   JOIN ukt u ON up.ukt_id = u.id
+                   LEFT JOIN tingkatan t2 ON up.tingkat_ke_id = t2.id
+                   WHERE up.anggota_id = $id AND up.status = 'lulus' AND up.sertifikat_path IS NOT NULL
+                   ORDER BY u.tanggal_pelaksanaan DESC";
+$sertifikat_result = $conn->query($sertifikat_sql);
+
+// Hitung umur [LAMA - TETAP SAMA]
 $birthDate = new DateTime($anggota['tanggal_lahir']);
 $today = new DateTime("today");
 $age = $birthDate->diff($today)->y;
 
-// Cari foto dengan berbagai kemungkinan nama file
+// Cari foto dengan berbagai kemungkinan nama file [LAMA - TETAP SAMA]
 function findPhotoFile($upload_dir, $no_anggota, $nama_lengkap) {
     // Sanitasi nama lengkap
     $nama_clean = preg_replace("/[^a-z0-9 -]/i", "", $nama_lengkap);
@@ -104,7 +117,7 @@ function findPhotoFile($upload_dir, $no_anggota, $nama_lengkap) {
     return null; // Tidak ada foto ditemukan
 }
 
-// Get foto path yang benar
+// Get foto path yang benar [LAMA - TETAP SAMA]
 $upload_dir = '../../uploads/foto_anggota/';
 $foto_filename = findPhotoFile($upload_dir, $anggota['no_anggota'], $anggota['nama_lengkap']);
 $foto_path = null;
@@ -454,6 +467,16 @@ if ($foto_filename && file_exists($upload_dir . $foto_filename)) {
                     </div>
                     
                     <div class="info-row">
+                        <div class="label">Tahun Bergabung</div>
+                        <div class="value"><?php echo $anggota['tahun_bergabung'] ?? '-'; ?></div>
+                    </div>
+                    
+                    <div class="info-row">
+                        <div class="label">No. Handphone</div>
+                        <div class="value"><?php echo $anggota['no_handphone'] ?? '-'; ?></div>
+                    </div>
+                    
+                    <div class="info-row">
                         <div class="label">Tingkat Saat Ini</div>
                         <div class="value highlight"><?php echo $anggota['nama_tingkat']; ?></div>
                     </div>
@@ -509,7 +532,89 @@ if ($foto_filename && file_exists($upload_dir . $foto_filename)) {
         </div>
         <?php endif; ?>
         
-        <!-- Statistik UKT -->
+        <!-- Sertifikat UKT [BARU - SERTIFIKAT] -->
+        <div class="section">
+            <h3>📜 Sertifikat Kelulusan UKT</h3>
+            
+            <?php if ($sertifikat_result && $sertifikat_result->num_rows > 0): ?>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Tanggal UKT</th>
+                        <th>Tingkat Kenaikan</th>
+                        <th>Nama File Sertifikat</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php while ($row = $sertifikat_result->fetch_assoc()): 
+                        $sert_path = '../../uploads/sertifikat_ukt/' . $row['sertifikat_path'];
+                        $sert_exists = file_exists($sert_path);
+                    ?>
+                    <tr>
+                        <td><strong><?php echo date('d M Y', strtotime($row['tanggal_pelaksanaan'])); ?></strong></td>
+                        <td><?php echo htmlspecialchars($row['tingkat_ke'] ?? '-'); ?></td>
+                        <td>
+                            <span style="font-family: monospace; font-size: 12px; background: #f0f0f0; padding: 4px 8px; border-radius: 3px;">
+                                <?php echo htmlspecialchars($row['sertifikat_path']); ?>
+                            </span>
+                        </td>
+                        <td>
+                            <?php if ($sert_exists): ?>
+                                <a href="<?php echo $sert_path; ?>" class="btn btn-primary" style="padding: 8px 16px; font-size: 12px;" target="_blank" download>
+                                    ⬇️ Download
+                                </a>
+                            <?php else: ?>
+                                <span style="color: #e74c3c; font-size: 12px;">❌ File tidak ditemukan</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endwhile; ?>
+                </tbody>
+            </table>
+            <?php else: ?>
+            <div class="empty-state">
+                <div class="empty-state-icon">📜</div>
+                <p>Belum ada sertifikat kelulusan UKT</p>
+            </div>
+            <?php endif; ?>
+        </div>
+        
+        <div class="section">
+            <h3>🏆 Prestasi yang Diraih</h3>
+            
+            <?php if ($prestasi_result && $prestasi_result->num_rows > 0): ?>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Tanggal Pelaksanaan</th>
+                        <th>Penyelenggara</th>
+                        <th>Kategori</th>
+                        <th>Prestasi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php while ($row = $prestasi_result->fetch_assoc()): ?>
+                    <tr>
+                        <td><strong><?php echo htmlspecialchars($row['event_name']); ?></strong></td>
+                        <td><?php echo date('d M Y', strtotime($row['tanggal_pelaksanaan'])); ?></td>
+                        <td><?php echo htmlspecialchars($row['penyelenggara'] ?? '-'); ?></td>
+                        <td><?php echo htmlspecialchars($row['kategori'] ?? '-'); ?></td>
+                        <td><?php echo htmlspecialchars($row['prestasi'] ?? '-'); ?></td>
+                    </tr>
+                    <?php endwhile; ?>
+                </tbody>
+            </table>
+            <?php else: ?>
+            <div class="empty-state">
+                <div class="empty-state-icon">🏆</div>
+                <p>Belum ada prestasi yang terdaftar</p>
+            </div>
+            <?php endif; ?>
+        </div>
+        
+        <!-- Statistik UKT [LAMA - TETAP SAMA] -->
         <?php
         $ukt_result->data_seek(0);
         $total_ukt = $ukt_result->num_rows;
@@ -523,7 +628,7 @@ if ($foto_filename && file_exists($upload_dir . $foto_filename)) {
         }
         ?>
         
-        <!-- Riwayat UKT -->
+        <!-- Riwayat UKT [LAMA - TETAP SAMA] -->
         <div class="section">
             <h3>🏆 Riwayat Ujian Kenaikan Tingkat (UKT)</h3>
             
@@ -588,7 +693,7 @@ if ($foto_filename && file_exists($upload_dir . $foto_filename)) {
             <?php endif; ?>
         </div>
         
-        <!-- Data Kerohanian -->
+        <!-- Data Kerohanian [LAMA - TETAP SAMA] -->
         <div class="section">
             <h3>🙏 Riwayat Pembukaan Kerohanian</h3>
             
