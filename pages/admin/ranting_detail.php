@@ -222,9 +222,14 @@ function get_revision_number($filename) {
                         <div class="stat-label">Anggota Aktif</div>
                     </div>
                 </div>
-                <span class="badge badge-<?php echo $ranting['jenis']; ?>" style="margin-top: 10px;">
-                    <?php echo strtoupper($ranting['jenis']); ?>
-                </span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span class="badge badge-<?php echo $ranting['jenis']; ?>">
+                        <?php echo strtoupper($ranting['jenis']); ?>
+                    </span>
+                    <a href="ranting.php" class="btn btn-secondary" style="padding: 8px 16px; font-size: 12px;">
+                        <i class="fas fa-arrow-left"></i> Kembali
+                    </a>
+                </div>
             </div>
         </div>
         

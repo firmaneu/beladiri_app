@@ -48,14 +48,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $no_anggota = $conn->real_escape_string($_POST['no_anggota']); // [BARU - SEBELUMNYA DISABLED]
     $nama_lengkap = $conn->real_escape_string($_POST['nama_lengkap']);
     $tempat_lahir = $conn->real_escape_string($_POST['tempat_lahir']);
-    $tanggal_lahir = $_POST['tanggal_lahir'];
+    $tanggal_lahir = !empty($_POST['tanggal_lahir']) ? $_POST['tanggal_lahir'] : NULL;
     $jenis_kelamin = $_POST['jenis_kelamin'];
     $ranting_saat_ini_id = $_POST['ranting_saat_ini_id'] ?: NULL;
     $tingkat_id = $_POST['tingkat_id'] ?: NULL;
     $jenis_anggota = $_POST['jenis_anggota'];
     $tahun_bergabung = !empty($_POST['tahun_bergabung']) ? (int)$_POST['tahun_bergabung'] : NULL; // [BARU]
     $no_handphone = $conn->real_escape_string($_POST['no_handphone'] ?? ''); // [BARU]
-    $ukt_terakhir = $_POST['ukt_terakhir'] ?? '';
+    $ukt_terakhir = !empty($_POST['ukt_terakhir']) ? $_POST['ukt_terakhir'] : NULL;
     
     // Validasi no_anggota jika berubah [BARU]
     if ($no_anggota != $anggota['no_anggota']) {

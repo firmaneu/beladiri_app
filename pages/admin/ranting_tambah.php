@@ -28,6 +28,7 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $kode_ranting = $conn->real_escape_string($_POST['kode_ranting']);
     $nama_ranting = $conn->real_escape_string($_POST['nama_ranting']);
     $jenis = $_POST['jenis'];
     $tanggal_sk = $_POST['tanggal_sk'];
@@ -43,6 +44,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $check_sk = $conn->query("SELECT id FROM ranting WHERE no_sk_pembentukan = '$no_sk_pembentukan'");
         if ($check_sk->num_rows > 0) {
             $error = "No SK ini sudah digunakan!";
+        }
+    }
+    
+    // Validasi Kode Ranting jika diisi
+    if (!empty($kode_ranting)) {
+        $check_kode = $conn->query("SELECT id FROM ranting WHERE kode_ranting = '$kode_ranting'");
+        if ($check_kode->num_rows > 0) {
+            $error = "Kode Ranting ini sudah digunakan!";
         }
     }
     
@@ -74,13 +83,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         
         if (!$error) {
-            $sql = "INSERT INTO ranting (nama_ranting, jenis, tanggal_sk_pembentukan, no_sk_pembentukan,
+            $sql = "INSERT INTO ranting (kode_ranting, nama_ranting, jenis, tanggal_sk_pembentukan, no_sk_pembentukan,
                     alamat, ketua_nama, penanggung_jawab_teknik, no_kontak, pengurus_kota_id)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("ssssssssi",
-                $nama_ranting, $jenis, $tanggal_sk, $no_sk_pembentukan,
+            $stmt->bind_param("sssssssssi",
+                $kode_ranting, $nama_ranting, $jenis, $tanggal_sk, $no_sk_pembentukan,
                 $alamat, $ketua_nama, $penanggung_jawab,
                 $no_kontak, $pengurus_kota_id
             );
@@ -276,6 +285,14 @@ $hari_options = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
             
             <form method="POST" enctype="multipart/form-data">
                 <h3>📋 Informasi Dasar</h3>
+                
+                <div class="form-row full">
+                    <div class="form-group">
+                        <label>Kode Ranting</label>
+                        <input type="text" name="kode_ranting" placeholder="Contoh: RNG-001">
+                        <div class="form-hint">Kode unik untuk ranting (opsional)</div>
+                    </div>
+                </div>
                 
                 <div class="form-row">
                     <div class="form-group">

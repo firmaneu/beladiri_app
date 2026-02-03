@@ -38,7 +38,7 @@ $sql = "SELECT r.*, p.nama_pengurus FROM ranting r
 
 if ($search) {
     $search = $conn->real_escape_string($search);
-    $sql .= " AND (r.nama_ranting LIKE '%" . $search . "%' OR r.alamat LIKE '%" . $search . "%')";
+    $sql .= " AND (r.kode_ranting LIKE '%" . $search . "%' OR r.nama_ranting LIKE '%" . $search . "%' OR r.alamat LIKE '%" . $search . "%')";
 }
 
 if ($filter_jenis) {
@@ -249,7 +249,7 @@ $is_readonly = $_SESSION['role'] == 'user';
             <form method="GET" action="">
                 <div class="filter-section-title">🔍 Pencarian & Filter</div>
                 <div class="filter-row">
-                    <input type="text" name="search" placeholder="Cari nama atau alamat..." value="<?php echo htmlspecialchars($search); ?>">
+                    <input type="text" name="search" placeholder="Cari kode, nama atau alamat..." value="<?php echo htmlspecialchars($search); ?>">
                     
                     <select name="filter_jenis">
                         <option value="">-- Semua Jenis --</option>
@@ -306,6 +306,7 @@ $is_readonly = $_SESSION['role'] == 'user';
             <table>
                 <thead>
                     <tr>
+                        <th>Kode Ranting</th>
                         <th>Nama Unit/Ranting</th>
                         <th>Jenis</th>
                         <th>Ketua</th>
@@ -318,6 +319,7 @@ $is_readonly = $_SESSION['role'] == 'user';
                 <tbody>
                     <?php while ($row = $result->fetch_assoc()): ?>
                     <tr>
+                        <td><?php echo htmlspecialchars($row['kode_ranting'] ?? '-'); ?></td>
                         <td><strong><?php echo htmlspecialchars($row['nama_ranting']); ?></strong></td>
                         <td><span class="badge badge-<?php echo $row['jenis']; ?>"><?php echo strtoupper($row['jenis']); ?></span></td>
                         <td><?php echo htmlspecialchars($row['ketua_nama'] ?? '-'); ?></td>

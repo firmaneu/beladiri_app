@@ -45,15 +45,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $no_anggota = $conn->real_escape_string($_POST['no_anggota']);
     $nama_lengkap = $conn->real_escape_string($_POST['nama_lengkap']);
     $tempat_lahir = $conn->real_escape_string($_POST['tempat_lahir']);
-    $tanggal_lahir = $_POST['tanggal_lahir'];
+    $tanggal_lahir = !empty($_POST['tanggal_lahir']) ? $_POST['tanggal_lahir'] : NULL;
     $jenis_kelamin = $_POST['jenis_kelamin'];
     $ranting_awal_id = !empty($_POST['ranting_awal_id']) ? (int)$_POST['ranting_awal_id'] : NULL;
+    $ranting_awal_manual = isset($_POST['ranting_awal_manual']) ? $conn->real_escape_string(trim($_POST['ranting_awal_manual'])) : '';
     $ranting_saat_ini_id = !empty($_POST['ranting_saat_ini_id']) ? (int)$_POST['ranting_saat_ini_id'] : NULL;
     $tingkat_id = !empty($_POST['tingkat_id']) ? (int)$_POST['tingkat_id'] : NULL;
-    $jenis_anggota = $_POST['jenis_anggota'];
+    $jenis_anggota = $_POST['jenis_anggota'] ?? '';
+    
     $tahun_bergabung = !empty($_POST['tahun_bergabung']) ? (int)$_POST['tahun_bergabung'] : NULL;
     $no_handphone = $conn->real_escape_string($_POST['no_handphone'] ?? '');
-    $ukt_terakhir = $_POST['ukt_terakhir'] ?? '';
+    $ukt_terakhir = !empty($_POST['ukt_terakhir']) ? $_POST['ukt_terakhir'] : NULL;
+    
+    // Validasi jenis_anggota - DISABLED TEMPORARILY
+    // $allowed_jenis = ['murid', 'pelatih', 'pelatih_unit'];
+    // if (empty($jenis_anggota) || !in_array($jenis_anggota, $allowed_jenis)) {
+    //     $jenis_anggota = 'murid'; // Force to valid value
+    // }
     
     // Handle foto upload - SIMPAN KE FOLDER DENGAN FORMAT NoAnggota_Nama.ext
     $foto_path = NULL;
@@ -96,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } else {
             $sql = "INSERT INTO anggota (
                 no_anggota, nama_lengkap, tempat_lahir, tanggal_lahir, jenis_kelamin,
-                ranting_awal_id, ranting_saat_ini_id, tingkat_id, jenis_anggota,
+                ranting_awal_id, ranting_awal_manual, ranting_saat_ini_id, tingkat_id,
                 tahun_bergabung, no_handphone, ukt_terakhir, nama_foto
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             
@@ -104,19 +112,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             if ($stmt) {
                 // Total 13 parameter
-                $stmt->bind_param("sssssiiiisiss", 
+                $stmt->bind_param("sssssisiiisss", 
                     $no_anggota,           // s
                     $nama_lengkap,         // s
                     $tempat_lahir,         // s
                     $tanggal_lahir,        // s
                     $jenis_kelamin,        // s
                     $ranting_awal_id,      // i
+                    $ranting_awal_manual,  // s
                     $ranting_saat_ini_id,  // i
                     $tingkat_id,           // i
-                    $jenis_anggota,        // s
-                    $tahun_bergabung,      // i [BARU]
-                    $no_handphone,         // s [BARU]
-                    $ukt_terakhir,         // s [LAMA]
+                    $tahun_bergabung,      // i
+                    $no_handphone,         // s
+                    $ukt_terakhir,         // s
                     $foto_path             // s
                 );
                 
@@ -153,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-$ranting_result = $conn->query("SELECT id, nama_ranting FROM ranting ORDER BY nama_ranting");
+$ranting_result = $conn->query("SELECT id, nama_ranting, kode_ranting FROM ranting ORDER BY nama_ranting");
 $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER BY urutan");
 ?>
 
@@ -466,8 +474,8 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
                 <div class="form-row">
                     <div class="form-group">
                         <label>No Anggota <span class="required">*</span></label>
-                        <input type="text" name="no_anggota" required placeholder="Contoh: AGT-2024-001">
-                        <div class="form-hint">Format unik untuk setiap anggota</div>
+                        <input type="text" name="no_anggota" id="no_anggota" readonly required placeholder="Akan di-generate otomatis">
+                        <div class="form-hint">Format otomatis: KodeRanting(3digit) + Tahun(4digit) + NoUrut(3digit) | Contoh: 0012026001</div>
                     </div>
                     
                     <div class="form-group">
@@ -539,7 +547,7 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
                             $ranting_result->data_seek(0);
                             while ($row = $ranting_result->fetch_assoc()): 
                             ?>
-                                <option value="<?php echo $row['id']; ?>"><?php echo htmlspecialchars($row['nama_ranting']); ?></option>
+                                <option value="<?php echo $row['id']; ?>" data-kode="<?php echo htmlspecialchars($row['kode_ranting'] ?? ''); ?>"><?php echo htmlspecialchars($row['nama_ranting']); ?></option>
                             <?php endwhile; ?>
                         </select>
                         <div class="form-hint">Pilih Unit/Ranting yang tersedia di database</div>
@@ -560,7 +568,7 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
                             $ranting_result->data_seek(0);
                             while ($row = $ranting_result->fetch_assoc()): 
                             ?>
-                                <option value="<?php echo $row['id']; ?>"><?php echo htmlspecialchars($row['nama_ranting']); ?></option>
+                                <option value="<?php echo $row['id']; ?>" data-kode="<?php echo htmlspecialchars($row['kode_ranting'] ?? ''); ?>"><?php echo htmlspecialchars($row['nama_ranting']); ?></option>
                             <?php endwhile; ?>
                         </select>
                         <div class="form-hint">Unit/Ranting dimana anggota saat ini berlatih</div>
@@ -602,8 +610,8 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
                 <div class="form-row">                                   
                     <div class="form-group">
                         <label>UKT Terakhir</label>
-                        <input type="text" name="ukt_terakhir" placeholder="Format: dd/mm/yyyy atau yyyy">
-                        <div class="form-hint">Format: 15/07/2024 atau 2024</div>
+                        <input type="date" name="ukt_terakhir">
+                        <div class="form-hint">Pilih tanggal UKT terakhir</div>
                     </div>
                 </div>
                 
@@ -673,10 +681,51 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
                 selectField.style.display = 'block';
                 manualField.classList.remove('show');
                 document.querySelector('input[name="ranting_awal_manual"]').value = '';
+                generateNoAnggota();
             } else {
                 selectField.style.display = 'none';
                 manualField.classList.add('show');
                 document.querySelector('select[name="ranting_awal_id"]').value = '';
+                document.getElementById('no_anggota').value = '';
+            }
+        }
+        
+        // Fungsi untuk generate no anggota otomatis
+        function generateNoAnggota() {
+            const rantingSelect = document.querySelector('select[name="ranting_awal_id"]');
+            const tahunInput = document.querySelector('input[name="tahun_bergabung"]');
+            const noAnggotaInput = document.getElementById('no_anggota');
+            
+            const rantingId = rantingSelect.value;
+            const tahun = tahunInput.value;
+            
+            if (rantingId && tahun) {
+                // Get kode_ranting from the selected option
+                const selectedOption = rantingSelect.options[rantingSelect.selectedIndex];
+                const kodeRanting = selectedOption ? selectedOption.getAttribute('data-kode') : '';
+                
+                if (kodeRanting) {
+                    // Ensure kode_ranting is 3 digits
+                    const paddedKode = String(kodeRanting).padStart(3, '0');
+                    
+                    // Fetch next sequential number
+                    fetch(`../../api/get_next_anggota_number.php?ranting_id=${rantingId}&tahun=${tahun}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                const nextNumber = String(data.next_number).padStart(3, '0');
+                                const noAnggota = paddedKode + tahun + nextNumber;
+                                noAnggotaInput.value = noAnggota;
+                            }
+                        })
+                        .catch(error => console.error('Error:', error));
+                } else {
+                    // If no kode_ranting, show error or use alternative
+                    noAnggotaInput.value = '';
+                    alert('Kode ranting belum diatur untuk ranting ini. Silakan hubungi administrator.');
+                }
+            } else {
+                noAnggotaInput.value = '';
             }
         }
         
@@ -693,46 +742,20 @@ $tingkatan_result = $conn->query("SELECT id, nama_tingkat FROM tingkatan ORDER B
         }
         
         document.addEventListener('DOMContentLoaded', function() {
-            const uktInputs = document.querySelectorAll('input[name="ukt_terakhir"]');
+            // Add event listeners for auto-generating no_anggota
+            const rantingSelect = document.querySelector('select[name="ranting_awal_id"]');
+            const tahunInput = document.querySelector('input[name="tahun_bergabung"]');
             
-            uktInputs.forEach(uktInput => {
-                uktInput.addEventListener('blur', function() {
-                    if (this.value.trim() === '') return;
-                    
-                    const input = this.value.trim();
-                    let parsedDate = null;
-                    
-                    // Format dd/mm/yyyy
-                    if (/^\d{2}\/\d{2}\/\d{4}$/.test(input)) {
-                        const parts = input.split('/');
-                        const day = parseInt(parts[0], 10);
-                        const month = parseInt(parts[1], 10);
-                        const year = parseInt(parts[2], 10);
-                        
-                        if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-                            parsedDate = input;
-                        }
-                    }
-                    // Format yyyy (tahun saja)
-                    else if (/^\d{4}$/.test(input)) {
-                        const year = input;
-                        parsedDate = '02/' + '07/' + year;
-                        this.value = parsedDate;
-                    }
-                    // Format yyyy-mm-dd
-                    else if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
-                        const date = new Date(input);
-                        parsedDate = String(date.getDate()).padStart(2, '0') + '/' + 
-                                    String(date.getMonth() + 1).padStart(2, '0') + '/' + 
-                                    date.getFullYear();
-                        this.value = parsedDate;
-                    }
-                    else {
-                        this.value = '';
-                        alert('Format tidak valid! Gunakan: dd/mm/yyyy atau yyyy');
-                    }
-                });
-            });
+            if (rantingSelect) {
+                rantingSelect.addEventListener('change', generateNoAnggota);
+            }
+            
+            if (tahunInput) {
+                tahunInput.addEventListener('input', generateNoAnggota);
+                tahunInput.addEventListener('change', generateNoAnggota);
+            }
+            
+            // No additional validation needed for date inputs
         });
     </script>
 </body>
